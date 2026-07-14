@@ -44,6 +44,7 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
 
+    
     # Validate Enroller ID
     if user.enroller_id:
 
@@ -55,6 +56,12 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid Enroller ID"
+            )
+
+        if enroller.role != "ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only ADMIN users can enroll new users"
             )
 
     # Generate User ID

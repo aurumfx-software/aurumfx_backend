@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import date
 from typing import Optional
+from app.enums import GenderEnum, ClubEnum
 
 
 class RegisterUser(BaseModel):
@@ -16,8 +17,8 @@ class RegisterUser(BaseModel):
     zip_code: str
     mobile: str
     aadhar_no: str
-    gender: str
-    club: str
+    gender: GenderEnum
+    club: ClubEnum
 
 class LoginUser(BaseModel):
     user_id: str
