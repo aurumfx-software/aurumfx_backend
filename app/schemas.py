@@ -105,3 +105,22 @@ class InvestmentList(BaseModel):
 
 class InvestmentApproval(BaseModel):
     approval_status: str
+
+class AdminInvestmentResponse(BaseModel):
+    id: int
+    investment_id: str
+    user_id: str
+    user_name: str
+    plan_name: str
+    return_type: str
+    amount: float
+    lots: int
+    investment_status: str
+    approval_status: str
+    investment_date: date
+
+    class Config:
+        from_attributes = True
+
+class ReturnApprove(BaseModel):
+    remarks: str | None = None

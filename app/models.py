@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Float, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Date, Float, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -197,4 +197,38 @@ class Investment(Base):
     return_date = Column(
         Date,
         nullable=False
+    )
+
+class ReturnHistory(Base):
+    __tablename__ = "return_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    investment_id = Column(
+        Integer,
+        ForeignKey("investments.id"),
+        nullable=False
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    return_number = Column(Integer, nullable=False)
+
+    return_percentage = Column(Float, nullable=False)
+
+    return_amount = Column(Float, nullable=False)
+
+    approved_date = Column(Date, nullable=False)
+
+    status = Column(String, default="PAID")
+
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
     )
