@@ -22,6 +22,32 @@ class User(Base):
     club = Column(String)
     role = Column(String, default="USER")
 
+class ReturnType(Base):
+    __tablename__ = "return_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    return_type = Column(
+        String(30),
+        unique=True,
+        nullable=False
+    )
+
+    status = Column(
+        Boolean,
+        default=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 class InvestmentPlan(Base):
     __tablename__ = "investment_plans"
@@ -43,4 +69,132 @@ class InvestmentPlan(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now()
+    )
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    Date,
+    ForeignKey,
+    DateTime
+)
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+
+
+class Investment(Base):
+    __tablename__ = "investments"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    investment_id = Column(
+        String(20),
+        unique=True,
+        nullable=False
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    return_type_id = Column(
+        Integer,
+        ForeignKey("return_types.id"),
+        nullable=False
+    )
+
+    investment_plan_id = Column(
+        Integer,
+        ForeignKey("investment_plans.id"),
+        nullable=False
+    )
+
+    amount = Column(
+        Float,
+        nullable=False
+    )
+
+    lots = Column(
+        Integer,
+        nullable=False
+    )
+
+    monthly_return_percentage = Column(
+        Float,
+        nullable=False
+    )
+
+    monthly_return_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    bank_transaction_id = Column(
+        String(100),
+        nullable=False
+    )
+
+    payment_proof = Column(
+        String(255),
+        nullable=True
+    )
+
+    enroller_id = Column(
+        String(20),
+        nullable=True
+    )
+
+    investment_status = Column(
+        String(20),
+        default="PENDING"
+    )
+
+    approval_status = Column(
+        String(20),
+        default="PENDING"
+    )
+
+    investment_date = Column(
+        Date,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    user = relationship(
+        "User",
+        backref="investments"
+    )
+
+    investment_plan = relationship(
+        "InvestmentPlan",
+        backref="investments"
+    )
+
+    return_which = Column(
+    Integer,
+    default=0
+    )
+
+    return_balance = Column(
+        Integer,
+        nullable=False
+    )
+
+    return_date = Column(
+        Date,
+        nullable=False
     )

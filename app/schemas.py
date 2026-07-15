@@ -24,6 +24,20 @@ class LoginUser(BaseModel):
     user_id: str
     password: str
 
+class ReturnTypeCreate(BaseModel):
+    return_type: str
+
+class ReturnTypeUpdate(BaseModel):
+    return_type: str | None = None
+    status: bool | None = None
+
+class ReturnTypeResponse(BaseModel):
+    id: int
+    return_type: str
+    status: bool
+    class Config:
+        from_attributes = True
+
 class InvestmentPlanCreate(BaseModel):
     plan_name: str = Field(..., example="10 Month Plan")
     duration_months: int = Field(..., example=10)
@@ -50,3 +64,44 @@ class InvestmentPlanResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class InvestmentCreate(BaseModel):
+    investment_plan_id: int
+    return_type_id: int
+    amount: float = Field(..., ge=5000)
+    bank_transaction_id: str
+    enroller_id: str
+    investment_date: date
+
+class InvestmentResponse(BaseModel):
+    id: int
+    investment_id: str
+    return_type: str
+    plan_name: str
+    amount: float
+    lots: int
+    monthly_return_percentage: float
+    monthly_return_amount: float
+    return_which: int
+    return_balance: int
+    return_date: date
+    investment_status: str
+    approval_status: str
+    investment_date: date
+
+    class Config:
+        from_attributes = True
+
+class InvestmentList(BaseModel):
+    investment_id: str
+    plan_name: str
+    amount: float
+    investment_status: str
+    approval_status: str
+    investment_date: date
+
+    class Config:
+        from_attributes = True
+
+class InvestmentApproval(BaseModel):
+    approval_status: str

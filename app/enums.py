@@ -8,7 +8,7 @@ class GenderEnum(str, Enum):
 
 
 class ClubEnum(str, Enum):
-    SILVER = "Silver"
-    GOLD = "Gold"
-    PLATINUM = "Platinum"
-    DIAMOND = "Diamond"
+    LEFT = "Left"
+    RIGHT = "Right"
+    CENTER = "Center"
+    
