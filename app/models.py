@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date, Float, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from datetime import datetime
 from app.database import Base
 
 class User(Base):
@@ -231,4 +233,149 @@ class ReturnHistory(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+
+class Wallet(Base):
+    __tablename__ = "wallets"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        unique=True
+    )
+
+    balance = Column(
+        Float,
+        default=0
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    user = relationship("User")
+
+class WalletTransaction(Base):
+    __tablename__ = "wallet_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    wallet_id = Column(
+        Integer,
+        ForeignKey("wallets.id"),
+        nullable=False
+    )
+
+    investment_id = Column(
+        Integer,
+        ForeignKey("investments.id"),
+        nullable=False
+    )
+
+    amount = Column(
+        Float,
+        nullable=False
+    )
+
+    transaction_type = Column(
+        String(30),
+        nullable=False
+    )
+
+    remarks = Column(
+        String(255)
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    wallet = relationship("Wallet")
+
+    investment = relationship("Investment")
+
+
+class ReferralCommission(Base):
+    __tablename__ = "referral_commissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    investment_id = Column(
+        Integer,
+        ForeignKey("investments.id"),
+        nullable=False
+    )
+
+    investor_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    enroller_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    investment_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    commission_percentage = Column(
+        Float,
+        nullable=False
+    )
+
+    commission_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    paid_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    washout_amount = Column(
+        Float,
+        default=0
+    )
+
+    status = Column(
+        String(20),
+        default="PAID"
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    # Relationships
+    investment = relationship(
+        "Investment",
+        foreign_keys=[investment_id]
+    )
+
+    investor = relationship(
+        "User",
+        foreign_keys=[investor_id]
+    )
+
+    enroller = relationship(
+        "User",
+        foreign_keys=[enroller_id]
     )

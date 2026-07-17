@@ -124,3 +124,43 @@ class AdminInvestmentResponse(BaseModel):
 
 class ReturnApprove(BaseModel):
     remarks: str | None = None
+
+class WalletResponse(BaseModel):
+    balance: float
+
+    class Config:
+        from_attributes = True
+
+from datetime import datetime
+
+class WalletTransactionResponse(BaseModel):
+    amount: float
+    transaction_type: str
+    remarks: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ReferralCommissionResponse(BaseModel):
+
+    investment_id: str
+
+    from_user_id: str
+
+    to_user_id: str
+
+    commission_percentage: float
+
+    commission_amount: float
+
+    paid_amount: float
+
+    washout_amount: float
+
+    status: str
+
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

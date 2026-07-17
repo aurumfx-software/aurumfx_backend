@@ -4,12 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from dateutil.relativedelta import relativedelta
 from app.database import get_db
+from app.utils.referral_commission import create_referral_commission
 from app.models import (
     User,
     Investment,
     InvestmentPlan,
     ReturnType,
-    ReturnHistory
+    ReturnHistory,
+    ReferralCommission
 )
 from app.schemas import (
     AdminInvestmentResponse,
@@ -516,23 +518,56 @@ def approve_reject(
             detail="Investment not found"
         )
 
-    approval = data.approval_status.upper()
+    status = data.approval_status.upper()
 
-    if approval not in ["APPROVED", "REJECTED"]:
+    if status not in ["APPROVED", "REJECTED"]:
         raise HTTPException(
             status_code=400,
-            detail="Approval status must be APPROVED or REJECTED"
+            detail="Invalid Status"
         )
 
-    investment.approval_status = approval
+    if investment.approval_status == "APPROVED":
+        raise HTTPException(
+            status_code=400,
+            detail="Investment already approved"
+        )
 
-    if approval == "APPROVED":
+    investment.approval_status = status
+
+    if status == "APPROVED":
         investment.investment_status = "ACTIVE"
     else:
         investment.investment_status = "REJECTED"
 
     db.commit()
+    db.refresh(investment)
+
+    # Create sponsor commission only when approved
+    if status == "APPROVED":
+
+        plan = (
+            db.query(InvestmentPlan)
+            .filter(
+                InvestmentPlan.id == investment.investment_plan_id
+            )
+            .first()
+        )
+
+        existing_commission = (
+            db.query(ReferralCommission)
+            .filter(
+                ReferralCommission.investment_id == investment.id
+            )
+            .first()
+        )
+
+        if not existing_commission:
+            create_referral_commission(
+                db=db,
+                investment=investment,
+                plan=plan
+            )
 
     return {
-        "message": f"Investment {approval.lower()} successfully."
+        "message": f"Investment {status.lower()} successfully"
     }
