@@ -7,6 +7,9 @@ from app.routers.investment import router as investment_router
 from app.routers.return_type import router as return_type_router
 from app.routers import admin_investment
 from app.routers import wallet
+from app.routers import admin_wallet
+from app.routers import admin_commission
+
 
 
 Base.metadata.create_all(bind=engine)
@@ -22,3 +25,6 @@ app.include_router(investment_plan_router)
 app.include_router(investment_router)
 app.include_router(admin_investment.router)
 app.include_router(wallet.router)
+app.include_router(admin_wallet.router)
+app.include_router(admin_commission.router)
+

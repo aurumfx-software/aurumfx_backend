@@ -21,6 +21,20 @@ router = APIRouter(
 # ----------------------------------------------------
 # Wallet Summary
 # ----------------------------------------------------
+from datetime import date
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+
+from app.database import get_db
+from app.models import (
+    User,
+    Wallet,
+    ReferralCommission
+)
+from app.core.security import get_current_user
+
+
 @router.get("/summary")
 def wallet_summary(
     current_user: str = Depends(get_current_user),
@@ -45,12 +59,17 @@ def wallet_summary(
         .first()
     )
 
-    balance = wallet.balance if wallet else 0
+    available_balance = wallet.balance if wallet else 0
 
-    total_commission = (
+    # ------------------------------------------------
+    # Gross Commission
+    # ------------------------------------------------
+    gross_commission = (
         db.query(
             func.coalesce(
-                func.sum(ReferralCommission.commission_amount),
+                func.sum(
+                    ReferralCommission.commission_amount
+                ),
                 0
             )
         )
@@ -60,10 +79,15 @@ def wallet_summary(
         .scalar()
     )
 
-    total_washout = (
+    # ------------------------------------------------
+    # Admin Fee
+    # ------------------------------------------------
+    total_admin_fee = (
         db.query(
             func.coalesce(
-                func.sum(ReferralCommission.washout_amount),
+                func.sum(
+                    ReferralCommission.admin_fee_amount
+                ),
                 0
             )
         )
@@ -73,27 +97,124 @@ def wallet_summary(
         .scalar()
     )
 
-    today_commission = (
+    # ------------------------------------------------
+    # Pending Commission
+    # ------------------------------------------------
+    pending_commission = (
         db.query(
             func.coalesce(
-                func.sum(ReferralCommission.paid_amount),
+                func.sum(
+                    ReferralCommission.paid_amount
+                ),
                 0
             )
         )
         .filter(
             ReferralCommission.enroller_id == enroller.id,
-            func.date(ReferralCommission.created_at) == date.today()
+            ReferralCommission.status == "PENDING"
+        )
+        .scalar()
+    )
+
+    # ------------------------------------------------
+    # Paid Commission
+    # ------------------------------------------------
+    paid_commission = (
+        db.query(
+            func.coalesce(
+                func.sum(
+                    ReferralCommission.paid_amount
+                ),
+                0
+            )
+        )
+        .filter(
+            ReferralCommission.enroller_id == enroller.id,
+            ReferralCommission.status == "PAID"
+        )
+        .scalar()
+    )
+
+    # ------------------------------------------------
+    # Today's Generated Commission
+    # ------------------------------------------------
+    today_commission = (
+        db.query(
+            func.coalesce(
+                func.sum(
+                    ReferralCommission.paid_amount
+                ),
+                0
+            )
+        )
+        .filter(
+            ReferralCommission.enroller_id == enroller.id,
+            func.date(
+                ReferralCommission.created_at
+            ) == date.today()
+        )
+        .scalar()
+    )
+
+    # ------------------------------------------------
+    # Today's Paid Commission
+    # ------------------------------------------------
+    today_paid = (
+        db.query(
+            func.coalesce(
+                func.sum(
+                    ReferralCommission.paid_amount
+                ),
+                0
+            )
+        )
+        .filter(
+            ReferralCommission.enroller_id == enroller.id,
+            ReferralCommission.status == "PAID",
+            func.date(
+                ReferralCommission.payment_date
+            ) == date.today()
+        )
+        .scalar()
+    )
+
+    # ------------------------------------------------
+    # Washout
+    # ------------------------------------------------
+    total_washout = (
+        db.query(
+            func.coalesce(
+                func.sum(
+                    ReferralCommission.washout_amount
+                ),
+                0
+            )
+        )
+        .filter(
+            ReferralCommission.enroller_id == enroller.id
         )
         .scalar()
     )
 
     return {
-        "available_balance": balance,
-        "total_commission": total_commission,
-        "today_commission": today_commission,
-        "washout_amount": total_washout
-    }
 
+        "available_balance": available_balance,
+
+        "gross_commission": gross_commission,
+
+        "admin_fee": total_admin_fee,
+
+        "pending_commission": pending_commission,
+
+        "paid_commission": paid_commission,
+
+        "today_generated_commission": today_commission,
+
+        "today_paid_commission": today_paid,
+
+        # "washout_amount": total_washout
+
+    }
 
 # ----------------------------------------------------
 # Commission History
@@ -139,29 +260,33 @@ def commission_history(
 
         response.append({
 
-            "id": item.id,
+        "id": item.id,
 
-            "investment_id": item.investment_id,
+        "investment_id": item.investment_id,
 
-            "investor_id": investor.user_id,
+        "investor_id": investor.user_id,
 
-            "investor_name": investor.first_name,
+        "investor_name": investor.first_name,
 
-            "investment_amount": item.investment_amount,
+        "investment_amount": item.investment_amount,
 
-            "commission_percentage": item.commission_percentage,
+        "commission_percentage": item.commission_percentage,
 
-            "commission_amount": item.commission_amount,
+        "gross_commission": item.commission_amount,
 
-            "paid_amount": item.paid_amount,
+        "admin_fee_percentage": item.admin_fee_percentage,
 
-            "washout_amount": item.washout_amount,
+        "admin_fee_amount": item.admin_fee_amount,
 
-            "status": item.status,
+        "paid_amount": item.paid_amount,
 
-            "created_at": item.created_at
+        # "washout_amount": item.washout_amount,
 
-        })
+        "status": item.status,
+
+        "created_at": item.created_at
+
+    })
 
     return response
 
@@ -196,7 +321,38 @@ def today_commission(
         .all()
     )
 
-    return commissions
+    # return commissions
+    response = []
+
+    for item in commissions:
+
+        investor = (
+            db.query(User)
+            .filter(User.id == item.investor_id)
+            .first()
+        )
+
+        response.append({
+
+            "investment_id": item.investment_id,
+
+            "investor": investor.first_name,
+
+            "investment_amount": item.investment_amount,
+
+            "gross_commission": item.commission_amount,
+
+            "admin_fee": item.admin_fee_amount,
+
+            "paid_amount": item.paid_amount,
+
+            # "washout_amount": item.washout_amount,
+
+            "created_at": item.created_at
+
+        })
+
+    return response
 
 
 # ----------------------------------------------------
@@ -256,11 +412,15 @@ def commission_details(
 
         "commission_percentage": commission.commission_percentage,
 
-        "commission_amount": commission.commission_amount,
+        "gross_commission": commission.commission_amount,
+
+        "admin_fee_percentage": commission.admin_fee_percentage,
+
+        "admin_fee_amount": commission.admin_fee_amount,
 
         "paid_amount": commission.paid_amount,
 
-        "washout_amount": commission.washout_amount,
+        # "washout_amount": commission.washout_amount,
 
         "status": commission.status,
 

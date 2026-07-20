@@ -16,7 +16,9 @@ def create_referral_commission(
     plan
 ):
 
+    # -------------------------
     # Investor
+    # -------------------------
     investor = (
         db.query(User)
         .filter(User.id == investment.user_id)
@@ -26,7 +28,9 @@ def create_referral_commission(
     if not investor:
         return
 
+    # -------------------------
     # Enroller
+    # -------------------------
     enroller = (
         db.query(User)
         .filter(User.user_id == investment.enroller_id)
@@ -36,23 +40,39 @@ def create_referral_commission(
     if not enroller:
         return
 
-    # Commission Percentage
-    if plan.duration_months == 10:
-        percentage = 5
+    # -------------------------
+    # Commission %
+    # -------------------------
+    commission_percentage = plan.commission_percentage
 
-    elif plan.duration_months == 30:
-        percentage = 10
+    gross_commission = (
+        investment.amount *
+        commission_percentage
+    ) / 100
 
-    else:
-        return
+    # -------------------------
+    # Admin Fee %
+    # -------------------------
+    admin_fee_percentage = plan.admin_fee_percentage
 
-    commission = (investment.amount * percentage) / 100
+    admin_fee_amount = (
+        gross_commission *
+        admin_fee_percentage
+    ) / 100
 
-    paid = commission
+    # Commission after admin fee
+    net_commission = (
+        gross_commission -
+        admin_fee_amount
+    )
+
+    paid = net_commission
     washout = 0
 
-    # 10 Month Plan Daily Limit
-    if plan.duration_months == 10:
+    # -------------------------
+    # Daily Commission Limit
+    # -------------------------
+    if plan.daily_commission_limit:
 
         today_paid = (
             db.query(
@@ -72,19 +92,24 @@ def create_referral_commission(
             .scalar()
         )
 
-        remaining_limit = 25000 - today_paid
+        remaining_limit = (
+            plan.daily_commission_limit -
+            today_paid
+        )
 
         if remaining_limit <= 0:
 
             paid = 0
-            washout = commission
+            washout = net_commission
 
-        elif commission > remaining_limit:
+        elif net_commission > remaining_limit:
 
             paid = remaining_limit
-            washout = commission - remaining_limit
+            washout = net_commission - remaining_limit
 
+    # -------------------------
     # Wallet
+    # -------------------------
     wallet = (
         db.query(Wallet)
         .filter(
@@ -103,10 +128,11 @@ def create_referral_commission(
         db.add(wallet)
         db.flush()
 
-    # Credit wallet
-    wallet.balance += paid
+    # wallet.balance += paid
 
+    # -------------------------
     # Commission History
+    # -------------------------
     commission_history = ReferralCommission(
 
         investment_id=investment.id,
@@ -117,21 +143,27 @@ def create_referral_commission(
 
         investment_amount=investment.amount,
 
-        commission_percentage=percentage,
+        commission_percentage=commission_percentage,
 
-        commission_amount=commission,
+        commission_amount=gross_commission,
+
+        admin_fee_percentage=admin_fee_percentage,
+
+        admin_fee_amount=admin_fee_amount,
 
         paid_amount=paid,
 
         washout_amount=washout,
 
-        status="PAID"
+        status="PENDING"
 
     )
 
     db.add(commission_history)
 
+    # -------------------------
     # Wallet Transaction
+    # -------------------------
     wallet_transaction = WalletTransaction(
 
         wallet_id=wallet.id,
@@ -146,6 +178,6 @@ def create_referral_commission(
 
     )
 
-    db.add(wallet_transaction)
+    # db.add(wallet_transaction)
 
     db.commit()

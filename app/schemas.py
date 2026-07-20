@@ -2,6 +2,8 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import date
 from typing import Optional
 from app.enums import GenderEnum, ClubEnum
+from typing import List
+from pydantic import BaseModel
 
 
 class RegisterUser(BaseModel):
@@ -44,6 +46,9 @@ class InvestmentPlanCreate(BaseModel):
     return_percentage: float = Field(..., example=14)
     minimum_amount: float = Field(..., example=5000)
     # maximum_amount: float = Field(..., example=500000)
+    commission_percentage: float
+    daily_commission_limit: float | None = None
+    admin_fee_percentage: float
 
 class InvestmentPlanUpdate(BaseModel):
     plan_name: Optional[str] = None
@@ -60,6 +65,9 @@ class InvestmentPlanResponse(BaseModel):
     return_percentage: float
     minimum_amount: float
     # maximum_amount: float
+    commission_percentage: float
+    daily_commission_limit: float | None
+
     status: bool
 
     class Config:
@@ -164,3 +172,6 @@ class ReferralCommissionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CommissionIds(BaseModel):
+    ids: List[int]

@@ -61,6 +61,21 @@ class InvestmentPlan(Base):
     minimum_amount = Column(Float, nullable=False)
     # maximum_amount = Column(Float, nullable=False)
     status = Column(Boolean, default=True)
+    commission_percentage = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+    admin_fee_percentage = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    daily_commission_limit = Column(
+        Float,
+        nullable=True
+    )
 
     created_at = Column(
         DateTime(timezone=True),
@@ -344,6 +359,24 @@ class ReferralCommission(Base):
         nullable=False
     )
 
+    admin_fee_percentage = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    admin_fee_amount = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    payment_date = Column(
+        DateTime,
+        nullable=True
+    )
+
+
     paid_amount = Column(
         Float,
         nullable=False
@@ -356,7 +389,7 @@ class ReferralCommission(Base):
 
     status = Column(
         String(20),
-        default="PAID"
+        default="PENDING"
     )
 
     created_at = Column(

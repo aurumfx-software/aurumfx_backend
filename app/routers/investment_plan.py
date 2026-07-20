@@ -41,6 +41,11 @@ def create_plan(
         return_percentage=plan.return_percentage,
         minimum_amount=plan.minimum_amount,
         # maximum_amount=plan.maximum_amount,
+        commission_percentage=plan.commission_percentage,
+        admin_fee_percentage=plan.admin_fee_percentage,
+        status=True
+        
+        
     )
 
     db.add(new_plan)

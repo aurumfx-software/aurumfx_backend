@@ -84,11 +84,11 @@ def create_investment(
         )
 
     # Enroller should be Admin
-    if enroller.role != "ADMIN":
-        raise HTTPException(
-            status_code=400,
-            detail="Enroller must be an Admin."
-        )
+    # if enroller.role != "ADMIN":
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Enroller must be an Admin."
+    #     )
 
     # Lots
     lots = int(investment.amount / 5000)
