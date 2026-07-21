@@ -175,3 +175,26 @@ class ReferralCommissionResponse(BaseModel):
 
 class CommissionIds(BaseModel):
     ids: List[int]
+
+class LotSettingCreate(BaseModel):
+    lot_number: int
+    amount: float
+    status: int = 1
+
+
+class LotSettingUpdate(BaseModel):
+    lot_number: int | None = None
+    amount: float | None = None
+    status: int | None = None
+
+
+class LotSettingResponse(BaseModel):
+    id: int
+    lot_number: int
+    amount: float
+    status: int
+    created_at: datetime
+    updated_at: datetime | None
+
+    class Config:
+        from_attributes = True

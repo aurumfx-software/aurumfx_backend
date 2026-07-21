@@ -8,6 +8,8 @@ from app.schemas import RegisterUser, LoginUser
 from app.utils.user_id import generate_user_id
 from app.utils.jwt import create_access_token
 from app.core.security import get_current_user
+from app.services.binary_tree import find_placement_parent
+
 
 router = APIRouter(
     prefix="/auth",
@@ -46,6 +48,9 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
 
     
     # Validate Enroller ID
+    placement_parent = None
+
+    # Validate Enroller ID
     if user.enroller_id:
 
         enroller = db.query(User).filter(
@@ -57,6 +62,13 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid Enroller ID"
             )
+
+    # Find placement parent
+    placement_parent = find_placement_parent(
+        db=db,
+        sponsor=enroller,
+        club=user.club
+    )
 
         # if enroller.role != "ADMIN":
         #     raise HTTPException(
@@ -75,6 +87,7 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         last_name=user.last_name,
         password=pwd_context.hash(user.password),
         enroller_id=user.enroller_id,
+        placement_parent=placement_parent.user_id if placement_parent else None,
         date_of_birth=user.date_of_birth,
         country=user.country,
         city=user.city,

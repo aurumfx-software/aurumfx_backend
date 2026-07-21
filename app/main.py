@@ -9,6 +9,9 @@ from app.routers import admin_investment
 from app.routers import wallet
 from app.routers import admin_wallet
 from app.routers import admin_commission
+from app.routers import lot_setting
+from app.routers import admin_binary_tree
+
 
 
 
@@ -27,4 +30,7 @@ app.include_router(admin_investment.router)
 app.include_router(wallet.router)
 app.include_router(admin_wallet.router)
 app.include_router(admin_commission.router)
+app.include_router(lot_setting.router)
+app.include_router(admin_binary_tree.router)
+
 

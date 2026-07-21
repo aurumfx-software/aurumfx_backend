@@ -22,6 +22,7 @@ class User(Base):
     aadhar_no = Column(String)
     gender = Column(String)
     club = Column(String)
+    placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
 
 class ReturnType(Base):
@@ -411,4 +412,47 @@ class ReferralCommission(Base):
     enroller = relationship(
         "User",
         foreign_keys=[enroller_id]
+    )
+
+from datetime import datetime
+from sqlalchemy import Column, Integer, Float, DateTime
+from app.database import Base
+
+
+class LotSetting(Base):
+    __tablename__ = "lot_settings"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    # Business lot number
+    lot_number = Column(
+        Integer,
+        nullable=False,
+        unique=True
+    )
+
+    # Amount required for this lot
+    amount = Column(
+        Float,
+        nullable=False
+    )
+
+    status = Column(
+        Integer,
+        default=1
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
     )
