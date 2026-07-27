@@ -456,3 +456,81 @@ class LotSetting(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow
     )
+
+
+class BinaryWallet(Base):
+    __tablename__ = "binary_wallet"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        unique=True,
+        nullable=False
+    )
+
+    left_business = Column(Float, default=0)
+
+    right_business = Column(Float, default=0)
+
+    left_carry = Column(Float, default=0)
+
+    right_carry = Column(Float, default=0)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    user = relationship("User")
+
+class BinaryIncome(Base):
+    __tablename__ = "binary_income"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    investment_id = Column(
+        Integer,
+        ForeignKey("investments.id"),
+        nullable=False
+    )
+
+    matched_amount = Column(Float)
+
+    percentage = Column(Float, default=4)
+
+    income = Column(Float)
+
+    daily_limit = Column(Float)
+
+    paid_income = Column(Float)
+
+    left_before = Column(Float)
+
+    right_before = Column(Float)
+
+    left_after = Column(Float)
+
+    right_after = Column(Float)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    user = relationship("User")
+
+    investment = relationship("Investment")

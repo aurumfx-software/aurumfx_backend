@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from dateutil.relativedelta import relativedelta
 from app.database import get_db
 from app.utils.referral_commission import create_referral_commission
+from app.utils.binary_income import propagate_business
 from app.models import (
     User,
     Investment,
@@ -544,6 +545,7 @@ def approve_reject(
 
     # Create sponsor commission only when approved
     if status == "APPROVED":
+        print("STEP 1: Investment Approved")
 
         plan = (
             db.query(InvestmentPlan)
@@ -552,7 +554,7 @@ def approve_reject(
             )
             .first()
         )
-
+        print("STEP 2: Calling Referral")
         existing_commission = (
             db.query(ReferralCommission)
             .filter(
@@ -567,6 +569,22 @@ def approve_reject(
                 investment=investment,
                 plan=plan
             )
+            print("STEP 3: Referral Completed")
+
+            print("STEP 4: Calling Binary")
+
+
+        #--------------------------------------------------------------------------------------------------------
+        #binary
+        #--------------------------------------------------------------------------------------------------------
+        propagate_business(
+            db=db,
+            investment=investment
+        )
+        print("STEP 5: Binary Completed")
+        #---------------------------------------------------------------------------------------------------------
+        #/binary--------------------------------------------------------------------------------------------------
+        #---------------------------------------------------------------------------------------------------------
 
     return {
         "message": f"Investment {status.lower()} successfully"

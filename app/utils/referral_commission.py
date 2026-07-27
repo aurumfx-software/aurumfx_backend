@@ -128,7 +128,7 @@ def create_referral_commission(
         db.add(wallet)
         db.flush()
 
-    # wallet.balance += paid
+    wallet.balance += paid
 
     # -------------------------
     # Commission History
@@ -177,7 +177,12 @@ def create_referral_commission(
         remarks=f"Referral Commission from {investor.user_id}"
 
     )
+    print("Investor :", investor.user_id)
+    print("Enroller :", enroller.user_id)
+    print("Paid :", paid)
+    print("Wallet Before :", wallet.balance - paid)
+    print("Wallet After :", wallet.balance)
 
-    # db.add(wallet_transaction)
+    db.add(wallet_transaction)
 
     db.commit()
