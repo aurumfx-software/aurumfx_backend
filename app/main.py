@@ -17,6 +17,11 @@ from app.routers import level_commission
 from app.routers import admin_level_commission
 from app.routers import admin_dashboard
 from app.routers import dashboard
+import logging
+from fastapi import Request
+
+logger = logging.getLogger("api")
+
 
 
 
@@ -46,3 +51,13 @@ app.include_router(admin_level_commission.router)
 app.include_router(admin_dashboard.router)
 app.include_router(dashboard.router)
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+
+    response = await call_next(request)
+
+    logger.info(
+        f"{request.method} {request.url.path} -> {response.status_code}"
+    )
+
+    return response
