@@ -90,7 +90,9 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         #     )
 
     # Generate User ID
+    print("User ID:", user.user_id)
     user_id = generate_user_id(db)
+    print("Generated User ID:", user_id)
 
     # Create User
     db_user = User(
