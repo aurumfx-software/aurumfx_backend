@@ -141,11 +141,12 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
 # ----------------------------
 @router.post("/login")
 def login(user: LoginUser, db: Session = Depends(get_db)):
+    
 
     db_user = db.query(User).filter(
         User.user_id == user.user_id
     ).first()
-
+    
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
