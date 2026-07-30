@@ -9,21 +9,40 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, unique=True, index=True)
-    email = Column(String, unique=True)
-    first_name = Column(String)
-    last_name = Column(String)
-    password = Column(String)
-    enroller_id = Column(String)
-    date_of_birth = Column(Date)
-    country = Column(String)
-    city = Column(String)
-    zip_code = Column(String)
-    mobile = Column(String)
-    aadhar_no = Column(String)
-    gender = Column(String)
-    club = Column(String)
+    email = Column(String, nullable=False)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    enroller_id = Column(String, nullable=True)
+    date_of_birth = Column(Date, nullable=False)
+    country = Column(String, nullable=False)
+    aadhar_no = Column(String, unique=True, nullable=False)
+    city = Column(String, nullable=True)
+    zip_code = Column(String, nullable=False)
+    mobile = Column(String, nullable=False)
+    aadhar_no = Column(String, unique=True, nullable=False)
+    pan = Column(String, nullable=False)
+
+    gender = Column(String, nullable=True)
+    club = Column(String, nullable=True)
+     # Bank Details
+    bank_account = Column(String, nullable=True)
+    bank_name = Column(String, nullable=True)
+    ifsc = Column(String, nullable=True)
+
+    # Nominee Details
+    nominee_name = Column(String, nullable=False)
+    nominee_relation = Column(String, nullable=True)
+    nominee_gender = Column(String, nullable=True)
+    nominee_dob = Column(Date, nullable=True)
+    nominee_address = Column(String, nullable=True)
+    nominee_aadhar = Column(String, nullable=False)
+    nominee_mobile = Column(String, nullable=False)
+
+
     placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
+    created_at = Column(DateTime,default=datetime.utcnow)
 
 class ReturnType(Base):
     __tablename__ = "return_types"
@@ -534,3 +553,178 @@ class BinaryIncome(Base):
     user = relationship("User")
 
     investment = relationship("Investment")
+
+
+
+class LevelCommission(Base):
+    __tablename__ = "level_commissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    level = Column(Integer, unique=True, nullable=False)
+    commission_percentage = Column(Float, nullable=False)
+    status = Column(Integer, default=1)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+class LevelIncome(Base):
+    __tablename__ = "level_income"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    # Investment that generated this commission
+    investment_id = Column(
+        Integer,
+        ForeignKey("investments.id"),
+        nullable=False
+    )
+
+    # Investor who invested
+    from_user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    # Sponsor who receives the commission
+    to_user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    # Level (1 - 15)
+    level = Column(
+        Integer,
+        nullable=False
+    )
+
+    # Investment Amount
+    investment_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    # Percentage from LevelCommission table
+    commission_percentage = Column(
+        Float,
+        nullable=False
+    )
+
+    # Calculated commission
+    commission_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    status = Column(
+        String,
+        default="PAID"
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    # Relationships
+    investment = relationship(
+        "Investment",
+        foreign_keys=[investment_id]
+    )
+
+    from_user = relationship(
+        "User",
+        foreign_keys=[from_user_id]
+    )
+
+    to_user = relationship(
+        "User",
+        foreign_keys=[to_user_id]
+    )
+
+class LevelCommissionHistory(Base):
+    __tablename__ = "level_commission_history"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    investment_id = Column(
+        Integer,
+        ForeignKey("investments.id"),
+        nullable=False
+    )
+
+    # Investor who made the investment
+    investor_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    # Sponsor receiving the commission
+    sponsor_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    level = Column(
+        Integer,
+        nullable=False
+    )
+
+    investment_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    commission_percentage = Column(
+        Float,
+        nullable=False
+    )
+
+    commission_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    status = Column(
+        String(20),
+        default="PAID"
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    investment = relationship(
+        "Investment",
+        foreign_keys=[investment_id]
+    )
+
+    investor = relationship(
+        "User",
+        foreign_keys=[investor_id]
+    )
+
+    sponsor = relationship(
+        "User",
+        foreign_keys=[sponsor_id]
+    )

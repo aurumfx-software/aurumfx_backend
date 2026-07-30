@@ -12,6 +12,12 @@ from app.routers import admin_commission
 from app.routers import lot_setting
 from app.routers import admin_binary_tree
 from app.routers import binary_income
+from app.routers import genealogy
+from app.routers import level_commission
+from app.routers import admin_level_commission
+from app.routers import admin_dashboard
+from app.routers import dashboard
+
 
 
 
@@ -19,7 +25,7 @@ from app.routers import binary_income
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="AurFX API",
+    title="AurumFX API",
     version="1.0.0"
 )
 
@@ -34,5 +40,9 @@ app.include_router(admin_commission.router)
 app.include_router(lot_setting.router)
 app.include_router(admin_binary_tree.router)
 app.include_router(binary_income.router)
-
+app.include_router(genealogy.router)
+app.include_router(level_commission.router)
+app.include_router(admin_level_commission.router)
+app.include_router(admin_dashboard.router)
+app.include_router(dashboard.router)
 

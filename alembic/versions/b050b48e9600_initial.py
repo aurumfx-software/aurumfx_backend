@@ -1,8 +1,8 @@
-"""tables created
+"""initial
 
-Revision ID: 0c3be812a589
+Revision ID: b050b48e9600
 Revises: 
-Create Date: 2026-07-18 18:37:17.688480
+Create Date: 2026-07-29 20:54:28.211561
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '0c3be812a589'
+revision: str = 'b050b48e9600'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,6 +29,7 @@ def upgrade() -> None:
     sa.Column('minimum_amount', sa.Float(), nullable=False),
     sa.Column('status', sa.Boolean(), nullable=True),
     sa.Column('commission_percentage', sa.Float(), nullable=False),
+    sa.Column('admin_fee_percentage', sa.Float(), nullable=False),
     sa.Column('daily_commission_limit', sa.Float(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
@@ -36,6 +37,28 @@ def upgrade() -> None:
     sa.UniqueConstraint('plan_name')
     )
     op.create_index(op.f('ix_investment_plans_id'), 'investment_plans', ['id'], unique=False)
+    op.create_table('level_commissions',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('level', sa.Integer(), nullable=False),
+    sa.Column('commission_percentage', sa.Float(), nullable=False),
+    sa.Column('status', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('level')
+    )
+    op.create_index(op.f('ix_level_commissions_id'), 'level_commissions', ['id'], unique=False)
+    op.create_table('lot_settings',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('lot_number', sa.Integer(), nullable=False),
+    sa.Column('amount', sa.Float(), nullable=False),
+    sa.Column('status', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('lot_number')
+    )
+    op.create_index(op.f('ix_lot_settings_id'), 'lot_settings', ['id'], unique=False)
     op.create_table('return_types',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('return_type', sa.String(length=30), nullable=False),
@@ -49,25 +72,52 @@ def upgrade() -> None:
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.String(), nullable=True),
-    sa.Column('email', sa.String(), nullable=True),
-    sa.Column('first_name', sa.String(), nullable=True),
-    sa.Column('last_name', sa.String(), nullable=True),
-    sa.Column('password', sa.String(), nullable=True),
-    sa.Column('enroller_id', sa.String(), nullable=True),
-    sa.Column('date_of_birth', sa.Date(), nullable=True),
-    sa.Column('country', sa.String(), nullable=True),
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('first_name', sa.String(), nullable=False),
+    sa.Column('last_name', sa.String(), nullable=False),
+    sa.Column('password', sa.String(), nullable=False),
+    sa.Column('enroller_id', sa.String(), nullable=False),
+    sa.Column('date_of_birth', sa.Date(), nullable=False),
+    sa.Column('country', sa.String(), nullable=False),
+    sa.Column('aadhar_no', sa.String(), nullable=False),
     sa.Column('city', sa.String(), nullable=True),
-    sa.Column('zip_code', sa.String(), nullable=True),
-    sa.Column('mobile', sa.String(), nullable=True),
-    sa.Column('aadhar_no', sa.String(), nullable=True),
+    sa.Column('zip_code', sa.String(), nullable=False),
+    sa.Column('mobile', sa.String(), nullable=False),
+    sa.Column('pan', sa.String(), nullable=False),
     sa.Column('gender', sa.String(), nullable=True),
     sa.Column('club', sa.String(), nullable=True),
+    sa.Column('bank_account', sa.String(), nullable=True),
+    sa.Column('bank_name', sa.String(), nullable=True),
+    sa.Column('ifsc', sa.String(), nullable=True),
+    sa.Column('nominee_name', sa.String(), nullable=False),
+    sa.Column('nominee_relation', sa.String(), nullable=True),
+    sa.Column('nominee_gender', sa.String(), nullable=True),
+    sa.Column('nominee_dob', sa.Date(), nullable=True),
+    sa.Column('nominee_address', sa.String(), nullable=True),
+    sa.Column('nominee_aadhar', sa.String(), nullable=False),
+    sa.Column('nominee_mobile', sa.String(), nullable=False),
+    sa.Column('placement_parent', sa.String(), nullable=True),
     sa.Column('role', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('email')
+    sa.UniqueConstraint('aadhar_no')
     )
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_index(op.f('ix_users_user_id'), 'users', ['user_id'], unique=True)
+    op.create_table('binary_wallet',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('left_business', sa.Float(), nullable=True),
+    sa.Column('right_business', sa.Float(), nullable=True),
+    sa.Column('left_carry', sa.Float(), nullable=True),
+    sa.Column('right_carry', sa.Float(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id')
+    )
+    op.create_index(op.f('ix_binary_wallet_id'), 'binary_wallet', ['id'], unique=False)
     op.create_table('investments',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('investment_id', sa.String(length=20), nullable=False),
@@ -107,6 +157,59 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id')
     )
     op.create_index(op.f('ix_wallets_id'), 'wallets', ['id'], unique=False)
+    op.create_table('binary_income',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('investment_id', sa.Integer(), nullable=False),
+    sa.Column('matched_amount', sa.Float(), nullable=True),
+    sa.Column('percentage', sa.Float(), nullable=True),
+    sa.Column('income', sa.Float(), nullable=True),
+    sa.Column('daily_limit', sa.Float(), nullable=True),
+    sa.Column('paid_income', sa.Float(), nullable=True),
+    sa.Column('left_before', sa.Float(), nullable=True),
+    sa.Column('right_before', sa.Float(), nullable=True),
+    sa.Column('left_after', sa.Float(), nullable=True),
+    sa.Column('right_after', sa.Float(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['investment_id'], ['investments.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_binary_income_id'), 'binary_income', ['id'], unique=False)
+    op.create_table('level_commission_history',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('investment_id', sa.Integer(), nullable=False),
+    sa.Column('investor_id', sa.Integer(), nullable=False),
+    sa.Column('sponsor_id', sa.Integer(), nullable=False),
+    sa.Column('level', sa.Integer(), nullable=False),
+    sa.Column('investment_amount', sa.Float(), nullable=False),
+    sa.Column('commission_percentage', sa.Float(), nullable=False),
+    sa.Column('commission_amount', sa.Float(), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['investment_id'], ['investments.id'], ),
+    sa.ForeignKeyConstraint(['investor_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['sponsor_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_level_commission_history_id'), 'level_commission_history', ['id'], unique=False)
+    op.create_table('level_income',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('investment_id', sa.Integer(), nullable=False),
+    sa.Column('from_user_id', sa.Integer(), nullable=False),
+    sa.Column('to_user_id', sa.Integer(), nullable=False),
+    sa.Column('level', sa.Integer(), nullable=False),
+    sa.Column('investment_amount', sa.Float(), nullable=False),
+    sa.Column('commission_percentage', sa.Float(), nullable=False),
+    sa.Column('commission_amount', sa.Float(), nullable=False),
+    sa.Column('status', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['from_user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['investment_id'], ['investments.id'], ),
+    sa.ForeignKeyConstraint(['to_user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_level_income_id'), 'level_income', ['id'], unique=False)
     op.create_table('referral_commissions',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('investment_id', sa.Integer(), nullable=False),
@@ -115,6 +218,9 @@ def upgrade() -> None:
     sa.Column('investment_amount', sa.Float(), nullable=False),
     sa.Column('commission_percentage', sa.Float(), nullable=False),
     sa.Column('commission_amount', sa.Float(), nullable=False),
+    sa.Column('admin_fee_percentage', sa.Float(), nullable=False),
+    sa.Column('admin_fee_amount', sa.Float(), nullable=False),
+    sa.Column('payment_date', sa.DateTime(), nullable=True),
     sa.Column('paid_amount', sa.Float(), nullable=False),
     sa.Column('washout_amount', sa.Float(), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=True),
@@ -166,15 +272,27 @@ def downgrade() -> None:
     op.drop_table('return_history')
     op.drop_index(op.f('ix_referral_commissions_id'), table_name='referral_commissions')
     op.drop_table('referral_commissions')
+    op.drop_index(op.f('ix_level_income_id'), table_name='level_income')
+    op.drop_table('level_income')
+    op.drop_index(op.f('ix_level_commission_history_id'), table_name='level_commission_history')
+    op.drop_table('level_commission_history')
+    op.drop_index(op.f('ix_binary_income_id'), table_name='binary_income')
+    op.drop_table('binary_income')
     op.drop_index(op.f('ix_wallets_id'), table_name='wallets')
     op.drop_table('wallets')
     op.drop_index(op.f('ix_investments_id'), table_name='investments')
     op.drop_table('investments')
+    op.drop_index(op.f('ix_binary_wallet_id'), table_name='binary_wallet')
+    op.drop_table('binary_wallet')
     op.drop_index(op.f('ix_users_user_id'), table_name='users')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_table('users')
     op.drop_index(op.f('ix_return_types_id'), table_name='return_types')
     op.drop_table('return_types')
+    op.drop_index(op.f('ix_lot_settings_id'), table_name='lot_settings')
+    op.drop_table('lot_settings')
+    op.drop_index(op.f('ix_level_commissions_id'), table_name='level_commissions')
+    op.drop_table('level_commissions')
     op.drop_index(op.f('ix_investment_plans_id'), table_name='investment_plans')
     op.drop_table('investment_plans')
     # ### end Alembic commands ###

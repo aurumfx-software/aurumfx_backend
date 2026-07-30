@@ -1,9 +1,8 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 from app.enums import GenderEnum, ClubEnum
-from typing import List
-from pydantic import BaseModel
+
 
 
 class RegisterUser(BaseModel):
@@ -19,8 +18,23 @@ class RegisterUser(BaseModel):
     zip_code: str
     mobile: str
     aadhar_no: str
+    pan: str
     gender: GenderEnum
     club: ClubEnum
+    # Bank
+    bank_account: str
+    bank_name: str
+    ifsc: str
+
+    # Nominee
+    nominee_name: str
+    nominee_relation: str
+    nominee_gender: str
+    nominee_dob: date
+    nominee_address: str
+    nominee_aadhar: str 
+    nominee_mobile: str
+
 
 class LoginUser(BaseModel):
     user_id: str
@@ -195,6 +209,52 @@ class LotSettingResponse(BaseModel):
     status: int
     created_at: datetime
     updated_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+
+
+class LevelCommissionCreate(BaseModel):
+    level: int
+    commission_percentage: float
+
+
+class LevelCommissionUpdate(BaseModel):
+    commission_percentage: float
+    status: int
+
+
+class LevelCommissionResponse(BaseModel):
+    id: int
+    level: int
+    commission_percentage: float
+    status: int
+
+    class Config:
+        from_attributes = True
+
+
+
+class LevelCommissionHistoryBase(BaseModel):
+    investment_id: int
+    investor_id: int
+    sponsor_id: int
+    level: int
+    investment_amount: float
+    commission_percentage: float
+    commission_amount: float
+    status: str
+
+
+class LevelCommissionHistoryCreate(LevelCommissionHistoryBase):
+    pass
+
+
+class LevelCommissionHistoryResponse(LevelCommissionHistoryBase):
+    id: int
+    created_at: datetime
 
     class Config:
         from_attributes = True

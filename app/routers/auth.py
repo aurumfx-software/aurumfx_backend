@@ -46,7 +46,19 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
 
-    
+    # Aadhaar already exists
+    if db.query(User).filter(User.aadhar_no == user.aadhar_no).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Aadhar number already registered"
+        )
+
+    # # PAN already exists
+    # if db.query(User).filter(User.pan == user.pan).first():
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="PAN already registered"
+    #     )
     # Validate Enroller ID
     placement_parent = None
 
@@ -69,6 +81,7 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         sponsor=enroller,
         club=user.club
     )
+    # placement_parent = ""
 
         # if enroller.role != "ADMIN":
         #     raise HTTPException(
@@ -94,8 +107,22 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         zip_code=user.zip_code,
         mobile=user.mobile,
         aadhar_no=user.aadhar_no,
+        pan=user.pan,
         gender=user.gender,
         club=user.club,
+        # Bank Details
+        bank_account=user.bank_account,
+        bank_name=user.bank_name,
+        ifsc=user.ifsc,
+
+        # Nominee Details
+        nominee_name=user.nominee_name,
+        nominee_relation=user.nominee_relation,
+        nominee_gender=user.nominee_gender,
+        nominee_dob=user.nominee_dob,
+        nominee_address=user.nominee_address,
+        nominee_aadhar=user.nominee_aadhar,
+        nominee_mobile=user.nominee_mobile,
         role="USER"
     )
 

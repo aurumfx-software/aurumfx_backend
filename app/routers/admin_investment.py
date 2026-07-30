@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 from app.database import get_db
 from app.utils.referral_commission import create_referral_commission
 from app.utils.binary_income import propagate_business
+from app.services.level_commission_service import calculate_level_commission
 from app.models import (
     User,
     Investment,
@@ -571,9 +572,16 @@ def approve_reject(
             )
             print("STEP 3: Referral Completed")
 
-            print("STEP 4: Calling Binary")
+            
 
-
+        #--------------------------------------------------------------------------------------------------------
+        #level commission
+        #--------------------------------------------------------------------------------------------------------
+        calculate_level_commission(db, investment)
+        #--------------------------------------------------------------------------------------------------------
+        #/level commission
+        #--------------------------------------------------------------------------------------------------------
+        print("STEP 4: Calling Binary")
         #--------------------------------------------------------------------------------------------------------
         #binary
         #--------------------------------------------------------------------------------------------------------
