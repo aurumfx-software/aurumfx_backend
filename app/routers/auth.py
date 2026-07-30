@@ -34,6 +34,8 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password mismatch"
         )
+    print("Password length:", len(user.password.encode("utf-8")))
+    print("User ID:", user.user_id)
 
     # Email already exists
     existing_email = db.query(User).filter(
