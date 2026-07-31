@@ -19,6 +19,8 @@ from app.routers import admin_dashboard
 from app.routers import dashboard
 import logging
 from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
+
 
 logger = logging.getLogger("api")
 
@@ -34,6 +36,23 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+
+origins = [
+    "http://localhost:3000",      # React
+    "http://localhost:5173",      # Vite
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://aurumfx-app-ec739.ondigitalocean.app"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 app.include_router(return_type_router)
 app.include_router(investment_plan_router)
