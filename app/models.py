@@ -42,6 +42,9 @@ class User(Base):
 
     placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
+    current_rank_id = Column(Integer,ForeignKey("rank_settings.id"),nullable=True)
+    rank_histories = relationship("UserRankHistory",back_populates="user")
+    current_rank = relationship("RankSetting",foreign_keys=[current_rank_id])
     created_at = Column(DateTime,default=datetime.utcnow)
 
 class ReturnType(Base):
@@ -727,4 +730,167 @@ class LevelCommissionHistory(Base):
     sponsor = relationship(
         "User",
         foreign_keys=[sponsor_id]
+    )
+
+
+class RankSetting(Base):
+    __tablename__ = "rank_settings"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    rank_name = Column(
+        String(100),
+        nullable=False,
+        unique=True
+    )
+
+    rank_no = Column(
+        Integer,
+        nullable=False,
+        unique=True
+    )
+
+    minimum_total_lots = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    minimum_direct_sponsors = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    reward_income = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    status = Column(
+        Boolean,
+        default=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    # Relationships
+
+    conditions = relationship(
+        "RankCondition",
+        back_populates="rank",
+        cascade="all, delete-orphan"
+    )
+
+    histories = relationship(
+        "UserRankHistory",
+        back_populates="rank"
+    )
+
+class RankCondition(Base):
+    __tablename__ = "rank_conditions"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    rank_id = Column(
+        Integer,
+        ForeignKey("rank_settings.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    # Example:
+    # minimum_group_lots = 1000
+    # required_group_count = 2
+    minimum_group_lots = Column(
+        Integer,
+        nullable=False
+    )
+
+    required_group_count = Column(
+        Integer,
+        nullable=False
+    )
+
+    rank = relationship(
+        "RankSetting",
+        back_populates="conditions"
+    )
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    Float,
+    Boolean,
+    ForeignKey,
+    DateTime
+)
+
+class UserRankHistory(Base):
+    __tablename__ = "user_rank_history"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    rank_id = Column(
+        Integer,
+        ForeignKey("rank_settings.id"),
+        nullable=False
+    )
+
+    reward_income = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    reward_paid = Column(
+        Boolean,
+        default=False
+    )
+
+    achieved_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    paid_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    user = relationship(
+        "User",
+        back_populates="rank_histories"
+    )
+
+    rank = relationship(
+        "RankSetting",
+        back_populates="histories"
     )
