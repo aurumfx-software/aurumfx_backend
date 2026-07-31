@@ -20,8 +20,30 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
+# ----------------------------
+# Check entroller
+# ----------------------------
+@router.get("/check-enroller/{enroller_id}")
+def check_enroller(enroller_id: str, db: Session = Depends(get_db)):
+    user = (
+        db.query(User)
+        .filter(User.user_id == enroller_id)
+        .first()
+    )
 
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="Enroller ID not found"
+        )
 
+    return {
+        "exists": True,
+        "user_id": user.user_id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "full_name": f"{user.first_name} {user.last_name}"
+    }
 # ----------------------------
 # Register
 # ----------------------------
