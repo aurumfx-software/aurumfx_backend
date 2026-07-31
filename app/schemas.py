@@ -20,7 +20,7 @@ class RegisterUser(BaseModel):
     aadhar_no: str
     pan: str
     gender: GenderEnum
-    club: ClubEnum
+    # club: ClubEnum
     # Bank
     bank_account: str
     bank_name: str

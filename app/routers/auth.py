@@ -76,11 +76,11 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
             )
 
     # Find placement parent
-    placement_parent = find_placement_parent(
-        db=db,
-        sponsor=enroller,
-        club=user.club
-    )
+    # placement_parent = find_placement_parent(
+    #     db=db,
+    #     sponsor=enroller,
+    #     club=user.club
+    # )
     # placement_parent = ""
 
         # if enroller.role != "ADMIN":
@@ -102,7 +102,7 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         last_name=user.last_name,
         password=pwd_context.hash(user.password),
         enroller_id=user.enroller_id,
-        placement_parent=placement_parent.user_id if placement_parent else None,
+        # placement_parent=placement_parent.user_id if placement_parent else None,
         date_of_birth=user.date_of_birth,
         country=user.country,
         city=user.city,
@@ -111,7 +111,7 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         aadhar_no=user.aadhar_no,
         pan=user.pan,
         gender=user.gender,
-        club=user.club,
+        # club=user.club,
         # Bank Details
         bank_account=user.bank_account,
         bank_name=user.bank_name,
