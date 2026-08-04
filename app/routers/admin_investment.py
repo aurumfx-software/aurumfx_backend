@@ -7,6 +7,7 @@ from app.database import get_db
 from app.utils.referral_commission import create_referral_commission
 from app.utils.binary_income import propagate_business
 from app.services.level_commission_service import calculate_level_commission
+from app.services.rank_service import check_and_assign_rank
 from app.models import (
     User,
     Investment,
@@ -570,7 +571,7 @@ def approve_reject(
                 investment=investment,
                 plan=plan
             )
-            print("STEP 3: Referral Completed")
+           # print("STEP 3: Referral Completed")
 
             
 
@@ -581,15 +582,45 @@ def approve_reject(
         #--------------------------------------------------------------------------------------------------------
         #/level commission
         #--------------------------------------------------------------------------------------------------------
-        print("STEP 4: Calling Binary")
+        #--------------------------------------------------------------------------------------------------------
+        #rank holder commission
+        #--------------------------------------------------------------------------------------------------------
+        investor = (
+        db.query(User)
+        .filter(User.id == investment.user_id)
+        .first()
+        )
+
+        current = investor
+
+        while current and current.enroller_id:
+
+            sponsor = (
+                db.query(User)
+                .filter(User.user_id == current.enroller_id)
+                .first()
+            )
+
+            if not sponsor:
+                break
+
+            print("Checking Sponsor :", sponsor.user_id)
+
+            check_and_assign_rank(db, sponsor)
+
+            current = sponsor
+        #--------------------------------------------------------------------------------------------------------
+        #/Rank holder commission
+        #--------------------------------------------------------------------------------------------------------
+        #print("STEP 4: Calling Binary")
         #--------------------------------------------------------------------------------------------------------
         #binary
         #--------------------------------------------------------------------------------------------------------
-        propagate_business(
-            db=db,
-            investment=investment
-        )
-        print("STEP 5: Binary Completed")
+        #propagate_business(
+        #    db=db,
+        #    investment=investment
+        #)
+        #print("STEP 5: Binary Completed")
         #---------------------------------------------------------------------------------------------------------
         #/binary--------------------------------------------------------------------------------------------------
         #---------------------------------------------------------------------------------------------------------

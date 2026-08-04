@@ -258,3 +258,53 @@ class LevelCommissionHistoryResponse(LevelCommissionHistoryBase):
 
     class Config:
         from_attributes = True
+
+class RankConditionBase(BaseModel):
+    minimum_group_lots: int
+    required_group_count: int
+    order_no: int
+
+
+class RankConditionCreate(RankConditionBase):
+    pass
+
+
+class RankConditionResponse(RankConditionBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class RankSettingCreate(BaseModel):
+    rank_name: str
+    rank_no: int
+    minimum_total_lots: int
+    minimum_direct_sponsors: int
+    reward_income: float
+    status: bool = True
+
+    conditions: List[RankConditionCreate]
+
+class RankSettingUpdate(BaseModel):
+    rank_name: str
+    rank_no: int
+    minimum_total_lots: int
+    minimum_direct_sponsors: int
+    reward_income: float
+    status: bool
+
+    conditions: List[RankConditionCreate]
+
+class RankSettingResponse(BaseModel):
+    id: int
+    rank_name: str
+    rank_no: int
+    minimum_total_lots: int
+    minimum_direct_sponsors: int
+    reward_income: float
+    status: bool
+
+    conditions: List[RankConditionResponse]
+
+    class Config:
+        from_attributes = True

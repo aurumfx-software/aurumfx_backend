@@ -20,9 +20,7 @@ class User(Base):
     city = Column(String, nullable=True)
     zip_code = Column(String, nullable=False)
     mobile = Column(String, nullable=False)
-    aadhar_no = Column(String, unique=True, nullable=False)
     pan = Column(String, nullable=False)
-
     gender = Column(String, nullable=True)
     club = Column(String, nullable=True)
      # Bank Details
@@ -45,7 +43,8 @@ class User(Base):
     current_rank_id = Column(Integer,ForeignKey("rank_settings.id"),nullable=True)
     rank_histories = relationship("UserRankHistory",back_populates="user")
     current_rank = relationship("RankSetting",foreign_keys=[current_rank_id])
-    created_at = Column(DateTime,default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True),server_default=func.now())
+    updated_at = Column(DateTime(timezone=True),server_default=func.now(),onupdate=func.now())
 
 class ReturnType(Base):
     __tablename__ = "return_types"
@@ -175,7 +174,8 @@ class Investment(Base):
 
     bank_transaction_id = Column(
         String(100),
-        nullable=False
+        nullable=False,
+        unique=True
     )
 
     payment_proof = Column(
@@ -317,7 +317,7 @@ class WalletTransaction(Base):
     investment_id = Column(
         Integer,
         ForeignKey("investments.id"),
-        nullable=False
+        nullable=True
     )
 
     amount = Column(
@@ -804,11 +804,7 @@ class RankSetting(Base):
 class RankCondition(Base):
     __tablename__ = "rank_conditions"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     rank_id = Column(
         Integer,
@@ -816,9 +812,12 @@ class RankCondition(Base):
         nullable=False
     )
 
-    # Example:
-    # minimum_group_lots = 1000
-    # required_group_count = 2
+    order_no = Column(
+        Integer,
+        nullable=False,
+        default=1
+    )
+
     minimum_group_lots = Column(
         Integer,
         nullable=False
@@ -834,14 +833,7 @@ class RankCondition(Base):
         back_populates="conditions"
     )
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    Float,
-    Boolean,
-    ForeignKey,
-    DateTime
-)
+
 
 class UserRankHistory(Base):
     __tablename__ = "user_rank_history"

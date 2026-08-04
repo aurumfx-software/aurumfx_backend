@@ -10,13 +10,15 @@ from app.routers import wallet
 from app.routers import admin_wallet
 from app.routers import admin_commission
 from app.routers import lot_setting
-from app.routers import admin_binary_tree
-from app.routers import binary_income
+# from app.routers import admin_binary_tree
+# from app.routers import binary_income
 from app.routers import genealogy
 from app.routers import level_commission
 from app.routers import admin_level_commission
 from app.routers import admin_dashboard
 from app.routers import dashboard
+from app.routers import  admin_rank
+
 import logging
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,13 +65,15 @@ app.include_router(wallet.router)
 app.include_router(admin_wallet.router)
 app.include_router(admin_commission.router)
 app.include_router(lot_setting.router)
-app.include_router(admin_binary_tree.router)
-app.include_router(binary_income.router)
+# app.include_router(admin_binary_tree.router)
+# app.include_router(binary_income.router)
 app.include_router(genealogy.router)
 app.include_router(level_commission.router)
 app.include_router(admin_level_commission.router)
+app.include_router(admin_rank.router)
 app.include_router(admin_dashboard.router)
 app.include_router(dashboard.router)
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

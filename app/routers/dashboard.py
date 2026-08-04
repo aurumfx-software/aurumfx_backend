@@ -80,24 +80,24 @@ def dashboard(
     .first()
 )
 
-    left_business = binary.left_business if binary else 0
-    right_business = binary.right_business if binary else 0
-    left_carry = binary.left_carry if binary else 0
-    right_carry = binary.right_carry if binary else 0
-    binary_income = (
-    db.query(
-        func.coalesce(
-            func.sum(
-                BinaryIncome.paid_income
-            ),
-            0
-        )
-    )
-    .filter(
-        BinaryIncome.user_id == user.id
-    )
-    .scalar()
-)
+#     left_business = binary.left_business if binary else 0
+#     right_business = binary.right_business if binary else 0
+#     left_carry = binary.left_carry if binary else 0
+#     right_carry = binary.right_carry if binary else 0
+#     binary_income = (
+#     db.query(
+#         func.coalesce(
+#             func.sum(
+#                 BinaryIncome.paid_income
+#             ),
+#             0
+#         )
+#     )
+#     .filter(
+#         BinaryIncome.user_id == user.id
+#     )
+#     .scalar()
+# )
     referral_income = (
     db.query(
         func.coalesce(
@@ -145,19 +145,19 @@ def dashboard(
 
     "active_investments": active_investments,
 
-    "binary_income": binary_income,
+    #"binary_income": binary_income,
 
     "level_income": level_income,
 
     "referral_income": referral_income,
 
-    "left_business": left_business,
+    # "left_business": left_business,
 
-    "right_business": right_business,
+    # "right_business": right_business,
 
-    "left_carry": left_carry,
+    # "left_carry": left_carry,
 
-    "right_carry": right_carry,
+    # "right_carry": right_carry,
 
     "team_members": team_members
 

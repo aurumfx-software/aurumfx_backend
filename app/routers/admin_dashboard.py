@@ -108,15 +108,15 @@ def dashboard(
     )
 
     # Binary Income
-    total_binary_income = (
-        db.query(
-            func.coalesce(
-                func.sum(BinaryIncome.paid_income),
-                0
-            )
-        )
-        .scalar()
-    )
+    # total_binary_income = (
+    #     db.query(
+    #         func.coalesce(
+    #             func.sum(BinaryIncome.paid_income),
+    #             0
+    #         )
+    #     )
+    #     .scalar()
+    # )
 
     # Level Income
     total_level_income = (
@@ -188,7 +188,7 @@ def dashboard(
             "total_amount": total_investment_amount
         },
         "income": {
-            "binary_income": total_binary_income,
+            # "binary_income": total_binary_income,
             "level_income": total_level_income,
             "referral_income": total_referral_income
         },
