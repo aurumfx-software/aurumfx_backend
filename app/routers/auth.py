@@ -164,43 +164,64 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
 # Login
 # ----------------------------
 @router.post("/login")
-def login(user: LoginUser, db: Session = Depends(get_db)):
-    
+def user_login(login: LoginUser, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.user_id == login.user_id).first()
 
-    db_user = db.query(User).filter(
-        User.user_id == user.user_id
-    ).first()
-    
-    if not db_user:
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid User ID or Password")
+
+    if user.role != "USER":
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid User ID"
+            status_code=403,
+            detail="This account is not authorized for user login."
         )
 
-    if not pwd_context.verify(
-        user.password,
-        db_user.password
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Password"
-        )
+    if not pwd_context.verify(login.password, user.password):
+        raise HTTPException(status_code=401, detail="Invalid User ID or Password")
 
-    access_token = create_access_token(
+    token = create_access_token(
         data={
-            "sub": db_user.user_id
+            "sub": user.user_id,
+            "role": user.role
         }
     )
 
     return {
-        "message": "Login Successful",
-        "access_token": access_token,
+        "access_token": token,
         "token_type": "bearer",
-        "user_id": db_user.user_id,
-        "name": db_user.first_name,
-        "role": db_user.role
+        "user_id": user.user_id,
+        "role": user.role
     }
 
+@router.post("/admin/login")
+def admin_login(login: LoginUser, db: Session = Depends(get_db)):
+    admin = db.query(User).filter(User.user_id == login.user_id).first()
+
+    if not admin:
+        raise HTTPException(status_code=401, detail="Invalid User ID or Password")
+
+    if admin.role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="This account is not authorized for admin login."
+        )
+
+    if not pwd_context.verify(login.password, admin.password):
+        raise HTTPException(status_code=401, detail="Invalid User ID or Password")
+
+    token = create_access_token(
+        data={
+            "sub": admin.user_id,
+            "role": admin.role
+        }
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": admin.user_id,
+        "role": admin.role
+    }
 
 @router.get("/profile")
 def profile(
