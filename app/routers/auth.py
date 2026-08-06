@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-
+from datetime import datetime
 from app.database import get_db
-from app.models import User
-from app.schemas import RegisterUser, LoginUser
+from app.models import User, UserActivityHistory
+from app.schemas import RegisterUser, LoginUser, ActivityHistoryResponse
 from app.utils.user_id import generate_user_id
 from app.utils.jwt import create_access_token
 from app.core.security import get_current_user
-from app.services.binary_tree import find_placement_parent
+from app.services.binary_tree import  find_placement_parent
+from app.services.activity_service import get_activity_history
 
 
 router = APIRouter(
@@ -164,7 +165,7 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
 # Login
 # ----------------------------
 @router.post("/login")
-def user_login(login: LoginUser, db: Session = Depends(get_db)):
+def user_login(login: LoginUser, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.user_id == login.user_id).first()
 
     if not user:
@@ -185,6 +186,16 @@ def user_login(login: LoginUser, db: Session = Depends(get_db)):
             "role": user.role
         }
     )
+    activity = UserActivityHistory(
+    user_id=user.id,
+    activity_type="LOGIN",
+    ip_address=request.client.host,
+    user_agent=request.headers.get("user-agent"),
+    created_at=datetime.utcnow()
+)
+
+    db.add(activity)
+    db.commit()
 
     return {
         "access_token": token,
@@ -194,7 +205,7 @@ def user_login(login: LoginUser, db: Session = Depends(get_db)):
     }
 
 @router.post("/admin/login")
-def admin_login(login: LoginUser, db: Session = Depends(get_db)):
+def admin_login(login: LoginUser, request: Request, db: Session = Depends(get_db)):
     admin = db.query(User).filter(User.user_id == login.user_id).first()
 
     if not admin:
@@ -215,6 +226,16 @@ def admin_login(login: LoginUser, db: Session = Depends(get_db)):
             "role": admin.role
         }
     )
+    activity = UserActivityHistory(
+    user_id=admin.id,
+    activity_type="LOGIN",
+    ip_address=request.client.host,
+    user_agent=request.headers.get("user-agent"),
+    created_at=datetime.utcnow()
+    )
+    
+    db.add(activity)
+    db.commit()
 
     return {
         "access_token": token,
@@ -222,7 +243,38 @@ def admin_login(login: LoginUser, db: Session = Depends(get_db)):
         "user_id": admin.user_id,
         "role": admin.role
     }
+@router.post("/logout")
+def logout(
+    request: Request,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
 
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    activity = UserActivityHistory(
+        user_id=user.id,
+        activity_type="LOGOUT",
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent"),
+        created_at=datetime.utcnow()
+    )
+
+    db.add(activity)
+    db.commit()
+
+    return {
+        "message": "Logged out successfully"
+    }
 @router.get("/profile")
 def profile(
 
@@ -265,3 +317,23 @@ def profile(
         
 
     }
+
+@router.get(
+    "/profile/activity-history",
+    response_model=list[ActivityHistoryResponse]
+)
+def activity_history(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.user_id == current_user
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return get_activity_history(db, user.id)

@@ -308,3 +308,12 @@ class RankSettingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ActivityHistoryResponse(BaseModel):
+    id: int
+    activity_type: str
+    ip_address: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

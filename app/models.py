@@ -886,3 +886,18 @@ class UserRankHistory(Base):
         "RankSetting",
         back_populates="histories"
     )
+
+
+class UserActivityHistory(Base):
+    __tablename__ = "user_activity_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    activity_type = Column(String, nullable=False)   # LOGIN / LOGOUT
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
