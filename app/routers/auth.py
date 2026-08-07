@@ -1,15 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-from datetime import datetime
+from datetime import datetime, date
 from app.database import get_db
 from app.models import User, UserActivityHistory
-from app.schemas import RegisterUser, LoginUser, ActivityHistoryResponse
+from app.schemas import RegisterUser, LoginUser, ActivityHistoryResponse, UpdateProfile, ChangePassword
 from app.utils.user_id import generate_user_id
 from app.utils.jwt import create_access_token
 from app.core.security import get_current_user
 from app.services.binary_tree import  find_placement_parent
 from app.services.activity_service import get_activity_history
+from app.services.spaces_service import upload_profile_image, upload_bank_proof
+
+
 
 
 router = APIRouter(
@@ -337,3 +340,414 @@ def activity_history(
         )
 
     return get_activity_history(db, user.id)
+
+@router.put("/profile")
+def update_profile(
+    profile: UpdateProfile,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.user_id == current_user
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # --------------------------------
+    # Check email already exists
+    # --------------------------------
+    if profile.email != user.email:
+
+        existing_email = db.query(User).filter(
+            User.email == profile.email,
+            User.id != user.id
+        ).first()
+
+        if existing_email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email already registered"
+            )
+
+    # --------------------------------
+    # Check Aadhar already exists
+    # --------------------------------
+    if profile.aadhar_no != user.aadhar_no:
+
+        existing_aadhar = db.query(User).filter(
+            User.aadhar_no == profile.aadhar_no,
+            User.id != user.id
+        ).first()
+
+        if existing_aadhar:
+            raise HTTPException(
+                status_code=400,
+                detail="Aadhar number already registered"
+            )
+
+    # --------------------------------
+    # Check PAN already exists
+    # --------------------------------
+    if profile.pan != user.pan:
+
+        existing_pan = db.query(User).filter(
+            User.pan == profile.pan,
+            User.id != user.id
+        ).first()
+
+        if existing_pan:
+            raise HTTPException(
+                status_code=400,
+                detail="PAN already registered"
+            )
+
+    # --------------------------------
+    # Update profile
+    # --------------------------------
+
+    user.email = profile.email
+    user.first_name = profile.first_name
+    user.last_name = profile.last_name
+    user.date_of_birth = profile.date_of_birth
+    user.country = profile.country
+    user.city = profile.city
+    user.zip_code = profile.zip_code
+    user.mobile = profile.mobile
+    user.aadhar_no = profile.aadhar_no
+    user.pan = profile.pan
+    user.gender = profile.gender
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Profile updated successfully",
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "date_of_birth": user.date_of_birth,
+            "country": user.country,
+            "city": user.city,
+            "zip_code": user.zip_code,
+            "mobile": user.mobile,
+            "aadhar_no": user.aadhar_no,
+            "pan": user.pan,
+            "gender": user.gender,
+            "club": user.club,
+            "role": user.role
+        }
+    }
+
+@router.post("/profile/image")
+async def upload_profile_image_api(
+    file: UploadFile = File(...),
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # --------------------------------
+    # Find logged-in user
+    # --------------------------------
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # --------------------------------
+    # Validate file type
+    # --------------------------------
+    allowed_types = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp"
+    }
+
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPG, PNG and WEBP images are allowed"
+        )
+
+    # --------------------------------
+    # Read image
+    # --------------------------------
+    file_content = await file.read()
+
+    # --------------------------------
+    # Validate file size
+    # Maximum 5 MB
+    # --------------------------------
+    max_size = 5 * 1024 * 1024
+
+    if len(file_content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="Image size must be less than 5 MB"
+        )
+
+    # --------------------------------
+    # Generate filename
+    # Example: FX001.jpg
+    # --------------------------------
+    extension = allowed_types[file.content_type]
+
+    filename = f"{user.user_id}{extension}"
+
+    # --------------------------------
+    # Upload to DigitalOcean Spaces
+    # --------------------------------
+    image_url = upload_profile_image(
+        file_content=file_content,
+        filename=filename,
+        content_type=file.content_type
+    )
+
+    # --------------------------------
+    # Save URL in database
+    # --------------------------------
+    user.profile_image = image_url
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Profile image uploaded successfully",
+        "user_id": user.user_id,
+        "profile_image": image_url
+    }
+
+@router.put("/profile/bank-details")
+async def update_bank_details(
+    # -----------------------------
+    # Bank Details
+    # -----------------------------
+    bank_account: str = Form(...),
+    bank_name: str = Form(...),
+    ifsc: str = Form(...),
+
+    # -----------------------------
+    # Nominee Details
+    # -----------------------------
+    nominee_name: str = Form(...),
+    nominee_relation: str | None = Form(None),
+    nominee_gender: str | None = Form(None),
+    nominee_dob: date | None = Form(None),
+    nominee_address: str | None = Form(None),
+    nominee_aadhar: str = Form(...),
+    nominee_mobile: str = Form(...),
+
+    # -----------------------------
+    # Bank Proof
+    # -----------------------------
+    proof_document: UploadFile = File(...),
+
+    # -----------------------------
+    # Authentication
+    # -----------------------------
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # --------------------------------
+    # Find logged-in user
+    # --------------------------------
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # --------------------------------
+    # Validate IFSC
+    # --------------------------------
+    ifsc = ifsc.strip().upper()
+
+    if len(ifsc) != 11:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid IFSC code"
+        )
+
+    # --------------------------------
+    # Validate Bank Proof
+    # --------------------------------
+    allowed_types = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "application/pdf": ".pdf"
+    }
+
+    if proof_document.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPG, PNG and PDF bank proof documents are allowed"
+        )
+
+    # --------------------------------
+    # Read file
+    # --------------------------------
+    file_content = await proof_document.read()
+
+    # --------------------------------
+    # Maximum 5 MB
+    # --------------------------------
+    max_size = 5 * 1024 * 1024
+
+    if len(file_content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="Bank proof document must be less than 5 MB"
+        )
+
+    # --------------------------------
+    # Generate filename
+    # --------------------------------
+    extension = allowed_types[proof_document.content_type]
+
+    filename = f"{user.user_id}{extension}"
+
+    # --------------------------------
+    # Upload to DigitalOcean Spaces
+    # --------------------------------
+    proof_key = upload_bank_proof(
+        file_content=file_content,
+        filename=filename,
+        content_type=proof_document.content_type
+    )
+
+    # =================================
+    # Update Bank Details
+    # =================================
+
+    user.bank_account = bank_account.strip()
+    user.bank_name = bank_name.strip()
+    user.ifsc = ifsc
+
+    user.bank_proof = proof_key
+
+    # =================================
+    # Update Nominee Details
+    # =================================
+
+    user.nominee_name = nominee_name.strip()
+    user.nominee_relation = (
+        nominee_relation.strip()
+        if nominee_relation
+        else None
+    )
+
+    user.nominee_gender = (
+        nominee_gender.strip()
+        if nominee_gender
+        else None
+    )
+
+    user.nominee_dob = nominee_dob
+
+    user.nominee_address = (
+        nominee_address.strip()
+        if nominee_address
+        else None
+    )
+
+    user.nominee_aadhar = nominee_aadhar.strip()
+    user.nominee_mobile = nominee_mobile.strip()
+
+    # --------------------------------
+    # Save
+    # --------------------------------
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Bank and nominee details updated successfully",
+        "bank_details": {
+            "bank_account": user.bank_account,
+            "bank_name": user.bank_name,
+            "ifsc": user.ifsc,
+            "bank_proof": user.bank_proof
+        },
+        "nominee_details": {
+            "nominee_name": user.nominee_name,
+            "nominee_relation": user.nominee_relation,
+            "nominee_gender": user.nominee_gender,
+            "nominee_dob": user.nominee_dob,
+            "nominee_address": user.nominee_address,
+            "nominee_aadhar": user.nominee_aadhar,
+            "nominee_mobile": user.nominee_mobile
+        }
+    }
+
+@router.put("/change-password")
+def change_password(
+    password_data: ChangePassword,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Find logged-in user
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Verify current password
+    if not pwd_context.verify(
+        password_data.current_password,
+        user.password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Current password is incorrect"
+        )
+
+    # Check new password confirmation
+    if password_data.new_password != password_data.confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="New password and confirm password do not match"
+        )
+
+    # Prevent same password
+    if pwd_context.verify(
+        password_data.new_password,
+        user.password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from current password"
+        )
+
+    # Hash new password
+    user.password = pwd_context.hash(
+        password_data.new_password
+    )
+
+    db.commit()
+
+    return {
+        "message": "Password changed successfully"
+    }

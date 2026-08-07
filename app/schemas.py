@@ -317,3 +317,22 @@ class ActivityHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UpdateProfile(BaseModel):
+    email: EmailStr
+    first_name: str
+    last_name: str
+    date_of_birth: date
+    country: str
+    city: str
+    zip_code: str
+    mobile: str
+    aadhar_no: str
+    pan: str
+    gender: GenderEnum
+
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+    confirm_password: str

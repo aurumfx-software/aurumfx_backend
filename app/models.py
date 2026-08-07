@@ -27,6 +27,11 @@ class User(Base):
     bank_account = Column(String, nullable=True)
     bank_name = Column(String, nullable=True)
     ifsc = Column(String, nullable=True)
+    bank_proof = Column(String, nullable=True)
+
+
+    #image
+    profile_image = Column(String, nullable=True)
 
     # Nominee Details
     nominee_name = Column(String, nullable=False)
@@ -36,7 +41,6 @@ class User(Base):
     nominee_address = Column(String, nullable=True)
     nominee_aadhar = Column(String, nullable=False)
     nominee_mobile = Column(String, nullable=False)
-
 
     placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
