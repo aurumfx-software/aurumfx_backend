@@ -336,3 +336,90 @@ class ChangePassword(BaseModel):
     current_password: str
     new_password: str = Field(min_length=6)
     confirm_password: str
+
+class AdminFeeCreate(BaseModel):
+    # investment_plan_id: int
+    fee_percentage: float = Field(
+        ...,
+        gt=0,
+        le=100
+    )
+    status: bool = True
+
+
+class AdminFeeUpdate(BaseModel):
+    # investment_plan_id: int
+    fee_percentage: float = Field(
+        ...,
+        gt=0,
+        le=100
+    )
+    status: bool
+
+
+class AdminFeeResponse(BaseModel):
+    id: int
+    # investment_plan_id: int
+    fee_percentage: float
+    status: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+class ReferralCommissionSettingCreate(BaseModel):
+    investment_plan_id: int
+
+    minimum_amount: float = Field(
+        ...,
+        ge=0
+    )
+
+    maximum_amount: float | None = Field(
+        default=None,
+        gt=0
+    )
+
+    commission_percentage: float = Field(
+        ...,
+        gt=0,
+        le=100
+    )
+
+    status: bool = True
+
+class ReferralCommissionSettingUpdate(BaseModel):
+    investment_plan_id: int
+
+    minimum_amount: float = Field(
+        ...,
+        ge=0
+    )
+
+    maximum_amount: float | None = Field(
+        default=None,
+        gt=0
+    )
+
+    commission_percentage: float = Field(
+        ...,
+        gt=0,
+        le=100
+    )
+
+    status: bool
+
+class ReferralCommissionSettingResponse(BaseModel):
+    id: int
+    investment_plan_id: int
+    plan_name: str
+    minimum_amount: float
+    maximum_amount: float | None
+    commission_percentage: float
+    status: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        from_attributes = True

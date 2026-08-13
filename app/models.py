@@ -87,17 +87,7 @@ class InvestmentPlan(Base):
     minimum_amount = Column(Float, nullable=False)
     # maximum_amount = Column(Float, nullable=False)
     status = Column(Boolean, default=True)
-    commission_percentage = Column(
-        Float,
-        nullable=False,
-        default=0
-    )
-    admin_fee_percentage = Column(
-        Float,
-        nullable=False,
-        default=0
-    )
-
+    
     daily_commission_limit = Column(
         Float,
         nullable=True
@@ -114,17 +104,6 @@ class InvestmentPlan(Base):
         onupdate=func.now()
     )
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
-    Date,
-    ForeignKey,
-    DateTime
-)
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 
 
 class Investment(Base):
@@ -294,6 +273,15 @@ class Wallet(Base):
         default=0
     )
 
+    pending_balance = Column(
+        Float,
+        default=0
+    )
+    admin_fee = Column(
+        Float,
+        default=0
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow
@@ -332,6 +320,12 @@ class WalletTransaction(Base):
     transaction_type = Column(
         String(30),
         nullable=False
+    )
+
+    status = Column(
+        String(20),
+        nullable=False,
+        default="PENDING"
     )
 
     remarks = Column(
@@ -386,17 +380,17 @@ class ReferralCommission(Base):
         nullable=False
     )
 
-    admin_fee_percentage = Column(
-        Float,
-        nullable=False,
-        default=0
-    )
+    # admin_fee_percentage = Column(
+    #     Float,
+    #     nullable=False,
+    #     default=0
+    # )
 
-    admin_fee_amount = Column(
-        Float,
-        nullable=False,
-        default=0
-    )
+    # admin_fee_amount = Column(
+    #     Float,
+    #     nullable=False,
+    #     default=0
+    # )
 
     payment_date = Column(
         DateTime,
@@ -439,10 +433,6 @@ class ReferralCommission(Base):
         "User",
         foreign_keys=[enroller_id]
     )
-
-from datetime import datetime
-from sqlalchemy import Column, Integer, Float, DateTime
-from app.database import Base
 
 
 class LotSetting(Base):
@@ -905,3 +895,91 @@ class UserActivityHistory(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
+
+class AdminFeeSetting(Base):
+    __tablename__ = "admin_fee_settings"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    # investment_plan_id = Column(
+    #     Integer,
+    #     ForeignKey("investment_plans.id"),
+    #     nullable=False
+    # )
+
+    fee_percentage = Column(
+        Float,
+        nullable=False
+    )
+
+    status = Column(
+        Boolean,
+        default=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+class ReferralCommissionSetting(Base):
+    __tablename__ = "referral_commission_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    investment_plan_id = Column(
+        Integer,
+        ForeignKey("investment_plans.id"),
+        nullable=False
+    )
+
+    minimum_amount = Column(
+        Float,
+        nullable=False
+    )
+
+    maximum_amount = Column(
+        Float,
+        nullable=True
+    )
+
+    commission_percentage = Column(
+        Float,
+        nullable=False
+    )
+
+    daily_commission_limit = Column(
+                Float,
+                nullable=True
+            )
+
+    status = Column(
+        Boolean,
+        default=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    investment_plan = relationship(
+        "InvestmentPlan",
+        backref="referral_commission_settings"
+    )
