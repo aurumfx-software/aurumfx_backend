@@ -88,10 +88,10 @@ class InvestmentPlan(Base):
     # maximum_amount = Column(Float, nullable=False)
     status = Column(Boolean, default=True)
     
-    daily_commission_limit = Column(
-        Float,
-        nullable=True
-    )
+    # daily_commission_limit = Column(
+    #     Float,
+    #     nullable=True
+    # )
 
     created_at = Column(
         DateTime(timezone=True),

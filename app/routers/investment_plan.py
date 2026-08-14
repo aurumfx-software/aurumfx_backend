@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from app.core.security import get_current_user
 from app.database import get_db
-from app.models import InvestmentPlan
+from app.models import InvestmentPlan, User
 from app.schemas import (
     InvestmentPlanCreate,
     InvestmentPlanUpdate,
@@ -10,9 +10,25 @@ from app.schemas import (
 )
 from app.dependencies import get_current_admin
 
+def get_admin(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.user_id == current_user
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    return user
+
 router = APIRouter(
-    prefix="/investment-plans",
-    tags=["Investment Plans"]
+    prefix="/admin/investment-plans",
+    tags=["Admin Investment Plans"]
 )
 
 @router.post(
@@ -41,8 +57,8 @@ def create_plan(
         return_percentage=plan.return_percentage,
         minimum_amount=plan.minimum_amount,
         # maximum_amount=plan.maximum_amount,
-        commission_percentage=plan.commission_percentage,
-        admin_fee_percentage=plan.admin_fee_percentage,
+        # commission_percentage=plan.commission_percentage,
+        # admin_fee_percentage=plan.admin_fee_percentage,
         status=True
         
         

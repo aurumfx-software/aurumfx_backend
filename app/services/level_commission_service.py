@@ -207,7 +207,15 @@ def get_level_percentage(
     level: int
 ):
     """
-    Get commission percentage for a particular level.
+    Get commission percentage configured for a level.
+
+    Example:
+
+        Level 1 -> 10%
+        Level 2 -> 5%
+        Level 3 -> 3%
+
+    Only active commission settings are considered.
     """
 
     commission = (
@@ -228,6 +236,33 @@ def get_level_percentage(
 
 
 # ==========================================================
+# CHECK ACTIVE INVESTMENT
+# ==========================================================
+
+def has_active_investment(
+    db: Session,
+    user_id: int
+):
+    """
+    Check whether a user has at least one ACTIVE investment.
+
+    Level commission is allowed only when the sponsor
+    has an active investment.
+    """
+
+    active_investment = (
+        db.query(Investment)
+        .filter(
+            Investment.user_id == user_id,
+            Investment.investment_status == "ACTIVE"
+        )
+        .first()
+    )
+
+    return active_investment is not None
+
+
+# ==========================================================
 # GET / CREATE USER WALLET
 # ==========================================================
 
@@ -240,16 +275,16 @@ def get_or_create_wallet(
 
     If wallet does not exist, create it.
 
-    Wallet structure:
+    Wallet:
 
         balance
-            = Paid / available amount
+            = Paid / available balance
 
         pending_balance
             = Pending referral + level + rank income
 
         admin_fee
-            = Admin fee deducted during payout
+            = Admin fee accumulated during payout
     """
 
     wallet = (
@@ -264,14 +299,8 @@ def get_or_create_wallet(
 
         wallet = Wallet(
             user_id=user_id,
-
-            # Paid balance
             balance=0,
-
-            # Pending income
             pending_balance=0,
-
-            # Admin fee accumulated during payout
             admin_fee=0
         )
 
@@ -292,13 +321,13 @@ def update_wallet(
     amount: float
 ):
     """
-    Add generated level income to pending_balance.
+    Add level commission to pending_balance.
 
     IMPORTANT:
 
-        balance is NOT changed.
+        wallet.balance is NOT changed.
 
-        pending_balance is increased.
+        wallet.pending_balance is increased.
 
     Admin fee is NOT deducted here.
     """
@@ -308,8 +337,8 @@ def update_wallet(
     )
 
     wallet = get_or_create_wallet(
-        db,
-        user_id
+        db=db,
+        user_id=user_id
     )
 
     pending_before = float(
@@ -317,8 +346,7 @@ def update_wallet(
     )
 
     wallet.pending_balance = (
-        pending_before
-        + amount
+        pending_before + amount
     )
 
     db.flush()
@@ -344,7 +372,6 @@ def create_wallet_transaction(
     """
 
     transaction = WalletTransaction(
-
         wallet_id=wallet_id,
 
         investment_id=investment_id,
@@ -355,7 +382,6 @@ def create_wallet_transaction(
 
         transaction_type="LEVEL_INCOME",
 
-        # IMPORTANT
         status="PENDING",
 
         remarks=(
@@ -385,12 +411,10 @@ def save_level_history(
     """
     Save level commission history.
 
-    The history remains PENDING until admin pays
-    the user's total income.
+    Status remains PENDING until admin payout.
     """
 
     history = LevelCommissionHistory(
-
         investment_id=investment.id,
 
         investor_id=investment.user_id,
@@ -424,43 +448,74 @@ def calculate_level_commission(
     investment: Investment
 ):
     """
-    Calculate up to 15 levels of commission.
+    Calculate up to 15 levels of level commission.
 
-    Flow:
+    BUSINESS RULE:
 
-        Investment Approved
-                |
-                v
-        Find investor
-                |
-                v
-        Find sponsor level by level
-                |
-                v
-        Calculate commission
-                |
-                v
-        Save LevelCommissionHistory = PENDING
-                |
-                v
-        Wallet.pending_balance += commission
-                |
-                v
-        WalletTransaction = PENDING
+        A sponsor receives level income ONLY when
+        that sponsor has at least one ACTIVE investment.
+
+    Example:
+
+        Investor
+           |
+           | Level 1
+           v
+        Sponsor A
+        ACTIVE investment
+        -> Gets Level 1 commission
+           |
+           | Level 2
+           v
+        Sponsor B
+        NO active investment
+        -> No Level 2 commission
+           |
+           | Level 3
+           v
+        Sponsor C
+        ACTIVE investment
+        -> Gets Level 3 commission
 
     IMPORTANT:
 
+        If one sponsor has no active investment,
+        we SKIP that sponsor's commission but
+        continue traversing the genealogy.
+
+    Income flow:
+
+        Level Commission
+              |
+              v
+        LevelCommissionHistory
+              |
+              | PENDING
+              v
+        Wallet.pending_balance
+              |
+              v
+        WalletTransaction
+              |
+              | PENDING
+              v
+        Admin Payout
+
     Admin fee is NOT calculated here.
-
-    Admin fee is calculated later by admin payout
-    from:
-
-        Referral Income
-        +
-        Level Income
-        +
-        Rank Income
     """
+
+    # ======================================================
+    # VALIDATE INVESTMENT
+    # ======================================================
+
+    if not investment:
+
+        print(
+            "Level commission skipped: "
+            "Investment not provided"
+        )
+
+        return None
 
     # ======================================================
     # INVESTOR
@@ -484,9 +539,7 @@ def calculate_level_commission(
         return None
 
     # ======================================================
-    # CURRENT USER
-    #
-    # Start from investor.
+    # START FROM INVESTOR
     # ======================================================
 
     current_user = investor
@@ -502,7 +555,7 @@ def calculate_level_commission(
     while level <= 15:
 
         # ==================================================
-        # CHECK ENROLLER
+        # CHECK CURRENT USER ENROLLER
         # ==================================================
 
         if not current_user.enroller_id:
@@ -535,16 +588,82 @@ def calculate_level_commission(
             break
 
         # ==================================================
+        # CHECK SPONSOR ACTIVE INVESTMENT
+        # ==================================================
+
+        sponsor_has_active_investment = (
+            has_active_investment(
+                db=db,
+                user_id=sponsor.id
+            )
+        )
+
+        if not sponsor_has_active_investment:
+
+            print(
+                "--------------------------------------"
+            )
+
+            print(
+                "LEVEL COMMISSION SKIPPED"
+            )
+
+            print(
+                "--------------------------------------"
+            )
+
+            print(
+                "Investor:",
+                investor.user_id
+            )
+
+            print(
+                "Sponsor:",
+                sponsor.user_id
+            )
+
+            print(
+                "Level:",
+                level
+            )
+
+            print(
+                "Reason:",
+                "Sponsor has no ACTIVE investment"
+            )
+
+            print(
+                "Commission:",
+                0
+            )
+
+            print(
+                "--------------------------------------"
+            )
+
+            # IMPORTANT:
+            #
+            # Do NOT break.
+            #
+            # Continue to next sponsor in genealogy.
+
+            current_user = sponsor
+
+            level += 1
+
+            continue
+
+        # ==================================================
         # GET LEVEL COMMISSION %
         # ==================================================
 
         percentage = get_level_percentage(
-            db,
-            level
+            db=db,
+            level=level
         )
 
         # ==================================================
-        # NO COMMISSION FOR THIS LEVEL
+        # NO COMMISSION CONFIGURATION
         # ==================================================
 
         if percentage <= 0:
@@ -561,20 +680,32 @@ def calculate_level_commission(
             continue
 
         # ==================================================
-        # CALCULATE COMMISSION
+        # INVESTMENT AMOUNT
         # ==================================================
 
         investment_amount = float(
             investment.amount or 0
         )
 
+        # ==================================================
+        # CALCULATE COMMISSION
+        # ==================================================
+
         commission = (
             investment_amount
             * percentage
         ) / 100
 
-        # Safety
+        # ==================================================
+        # SAFETY CHECK
+        # ==================================================
+
         if commission <= 0:
+
+            print(
+                f"Level {level}: "
+                f"Commission amount is zero"
+            )
 
             current_user = sponsor
 
@@ -583,9 +714,7 @@ def calculate_level_commission(
             continue
 
         # ==================================================
-        # SAVE LEVEL HISTORY
-        #
-        # STATUS = PENDING
+        # SAVE LEVEL COMMISSION HISTORY
         # ==================================================
 
         history = save_level_history(
@@ -602,15 +731,7 @@ def calculate_level_commission(
         )
 
         # ==================================================
-        # UPDATE PENDING WALLET
-        #
-        # IMPORTANT:
-        #
-        # Do NOT update wallet.balance.
-        #
-        # Update only:
-        #
-        #     wallet.pending_balance
+        # UPDATE SPONSOR PENDING WALLET
         # ==================================================
 
         wallet = update_wallet(
@@ -660,6 +781,11 @@ def calculate_level_commission(
         print(
             "Level:",
             level
+        )
+
+        print(
+            "Sponsor Active Investment:",
+            "YES"
         )
 
         print(
@@ -715,7 +841,7 @@ def calculate_level_commission(
         level += 1
 
     # ======================================================
-    # COMMIT ALL LEVEL COMMISSIONS TOGETHER
+    # COMMIT
     # ======================================================
 
     db.commit()
@@ -729,7 +855,7 @@ def calculate_level_commission(
         db.refresh(history)
 
     # ======================================================
-    # RESULT
+    # FINAL LOG
     # ======================================================
 
     print(
@@ -738,6 +864,10 @@ def calculate_level_commission(
 
     print(
         "LEVEL COMMISSION COMPLETED"
+    )
+
+    print(
+        "======================================"
     )
 
     print(

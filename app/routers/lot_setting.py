@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import get_current_user
 from app.database import get_db
-from app.models import User
+from app.models import User, LotSetting
 from sqlalchemy.orm import Session
 from app.schemas import (
     LotSettingCreate,
@@ -27,26 +27,10 @@ def get_admin(
 
 
 router = APIRouter(
-    prefix="/admin/commissions",
-    tags=["Admin Commissions"],
+    prefix="/admin/lots",
+    tags=["Admin Lots"],
     dependencies=[Depends(get_admin)]
 )
-def get_admin(
-    current_user: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-
-    user = db.query(User).filter(
-        User.user_id == current_user
-    ).first()
-
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    if user.role != "ADMIN":
-        raise HTTPException(403, "Admin only")
-
-    return user
 
 
 @router.post(
@@ -57,17 +41,27 @@ def create_lot(
     data: LotSettingCreate,
     db: Session = Depends(get_db)
 ):
+# Check if  lot already exists
+    # existing_lot = db.query(LotSetting).first()
 
-    existing = db.query(LotSetting).filter(
-        LotSetting.lot_number == data.lot_number
-    ).first()
+    # if existing_lot:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Lot is already configured. Please update the existing Lot."
+    #     )
 
-    if existing:
+    # Create  lot only if no record exists
+# Check if Lot already exists
+    existing_fee = db.query(LotSetting).first()
+
+    if existing_fee:
         raise HTTPException(
             status_code=400,
-            detail="Lot number already exists"
+            detail="Lot is already configured. Please update the existing admin fee."
         )
 
+    # Create  lot only if no record exists
+        
     lot = LotSetting(
         lot_number=data.lot_number,
         amount=data.amount,

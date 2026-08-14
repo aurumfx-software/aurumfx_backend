@@ -8,7 +8,7 @@ from app.routers.return_type import router as return_type_router
 from app.routers import admin_investment
 from app.routers import wallet
 from app.routers import admin_wallet
-from app.routers import admin_commission
+# from app.routers import admin_commission
 from app.routers import lot_setting
 # from app.routers import admin_binary_tree
 # from app.routers import binary_income
@@ -66,7 +66,7 @@ app.include_router(investment_router)
 app.include_router(admin_investment.router)
 app.include_router(wallet.router)
 app.include_router(admin_wallet.router)
-app.include_router(admin_commission.router)
+# app.include_router(admin_commission.router)
 app.include_router(lot_setting.router)
 # app.include_router(admin_binary_tree.router)
 # app.include_router(binary_income.router)

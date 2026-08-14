@@ -60,15 +60,17 @@ class InvestmentPlanCreate(BaseModel):
     return_percentage: float = Field(..., example=14)
     minimum_amount: float = Field(..., example=5000)
     # maximum_amount: float = Field(..., example=500000)
-    commission_percentage: float
-    daily_commission_limit: float | None = None
-    admin_fee_percentage: float
+    # commission_percentage: float
+    # daily_commission_limit: float | None = None
+    # admin_fee_percentage: float
 
 class InvestmentPlanUpdate(BaseModel):
     plan_name: Optional[str] = None
     duration_months: Optional[int] = None
     return_percentage: Optional[float] = None
     minimum_amount: Optional[float] = None
+    # commission_percentage: float
+    # daily_commission_limit: float | None = None
     # maximum_amount: Optional[float] = None
     status: Optional[bool] = None
 
@@ -79,8 +81,8 @@ class InvestmentPlanResponse(BaseModel):
     return_percentage: float
     minimum_amount: float
     # maximum_amount: float
-    commission_percentage: float
-    daily_commission_limit: float | None
+    # commission_percentage: float
+    # daily_commission_limit: float | None
 
     status: bool
 

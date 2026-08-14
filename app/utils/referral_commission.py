@@ -6,6 +6,7 @@ from app.models import (
     ReferralCommission,
     ReferralCommissionSetting,
     User,
+    Investment
 )
 
 
@@ -91,6 +92,26 @@ def create_referral_commission(
         return None
 
     # ======================================================
+# CHECK ENROLLER ACTIVE INVESTMENT
+# ======================================================
+
+    active_investment = (
+        db.query(Investment)
+        .filter(
+            Investment.user_id == enroller.id,
+            Investment.investment_status == "ACTIVE"
+        )
+        .first()
+    )
+
+    if not active_investment:
+        print(
+            "Referral commission skipped: "
+            f"Enroller {enroller.user_id} has no active investment"
+        )
+        return None
+
+    # ======================================================
     # REFERRAL COMMISSION SETTING
     # ======================================================
 
@@ -170,7 +191,7 @@ def create_referral_commission(
     washout_amount = 0.0
 
     daily_limit = float(
-        plan.daily_commission_limit or 0
+        referral_setting.daily_commission_limit or 0
     )
 
     if daily_limit > 0:
