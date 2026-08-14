@@ -425,3 +425,16 @@ class ReferralCommissionSettingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class EnrollerResponse(BaseModel):
+    user_id: str
+    fullname: str
+    date_of_joining: date | None
+    rank: str | None
+    total_investment_amount: float
+    total_lots: int
+
+
+class EnrollerListResponse(BaseModel):
+    total: int
+    enrollers: List[EnrollerResponse]

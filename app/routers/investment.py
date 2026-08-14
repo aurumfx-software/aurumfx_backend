@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from datetime import date
 from app.database import get_db
-from app.models import User, Investment, InvestmentPlan, ReturnType
+from app.models import User, Investment, InvestmentPlan, ReturnType, LotSetting
 from app.schemas import (
     InvestmentCreate,
     InvestmentResponse
@@ -55,6 +55,29 @@ def create_investment(
             status_code=404,
             detail="Investment Plan not found"
         )
+ # --------------------------------------------------
+    # Lot Setting
+    # --------------------------------------------------
+    lot_setting = (
+        db.query(LotSetting)
+        .filter(LotSetting.status == 1)
+        .first()
+    )
+
+    if not lot_setting:
+        raise HTTPException(
+            status_code=500,
+            detail="Lot setting is not configured"
+        )
+
+    lot_amount = float(lot_setting.amount)
+
+    if lot_amount <= 0:
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid lot amount configuration"
+        )
+
 
     # Minimum Amount
     if investment.amount < 5000:
@@ -91,7 +114,8 @@ def create_investment(
     #     )
 
     # Lots
-    lots = int(investment.amount / 5000)
+    # lots = int(investment.amount / 5000)
+    lots = int(investment.amount / lot_amount)
 
     # Monthly Return Amount
     monthly_return_amount = (

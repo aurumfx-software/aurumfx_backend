@@ -21,6 +21,8 @@ from app.routers import  admin_rank
 from app.routers import admin_fee
 from app.routers import admin_referral_commission_settings
 from app.routers.admin_payout import router as admin_payout_router
+from app.routers.enroller import router as enroller_router
+
 
 import logging
 from fastapi import Request
@@ -79,6 +81,8 @@ app.include_router(dashboard.router)
 app.include_router(admin_fee.router)
 app.include_router(admin_referral_commission_settings.router)
 app.include_router(admin_payout_router)
+app.include_router(enroller_router)
+
 
 
 @app.middleware("http")
