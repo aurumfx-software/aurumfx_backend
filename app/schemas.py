@@ -438,3 +438,19 @@ class EnrollerResponse(BaseModel):
 class EnrollerListResponse(BaseModel):
     total: int
     enrollers: List[EnrollerResponse]
+
+class SponsorTreeNode(BaseModel):
+    user_id: str
+    fullname: str
+    profile_image: Optional[str] = None
+    date_of_joining: Optional[date] = None
+    rank: Optional[str] = None
+    total_investment_amount: float = 0
+    total_lots: int = 0
+    children: List["SponsorTreeNode"] = []
+
+
+class SponsorTreeResponse(BaseModel):
+    user_id: str
+    fullname: str
+    children: List[SponsorTreeNode] = []

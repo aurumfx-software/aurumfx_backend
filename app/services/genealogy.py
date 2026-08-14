@@ -159,6 +159,18 @@ def get_full_genealogy(db: Session):
     ]
 
 
+# def get_user_genealogy(db: Session, user_id: str):
+#     user = (
+#         db.query(User)
+#         .filter(User.user_id == user_id)
+#         .first()
+#     )
+
+#     if not user:
+#         return None
+
+#     return build_tree(db, user)
+
 def get_user_genealogy(db: Session, user_id: str):
     user = (
         db.query(User)
@@ -169,4 +181,24 @@ def get_user_genealogy(db: Session, user_id: str):
     if not user:
         return None
 
-    return build_tree(db, user)
+    # Start from selected user
+    root_user = user
+
+    # Move upward through sponsors
+    while root_user.enroller_id:
+
+        sponsor = (
+            db.query(User)
+            .filter(
+                User.user_id == root_user.enroller_id
+            )
+            .first()
+        )
+
+        if not sponsor:
+            break
+
+        root_user = sponsor
+
+    # Build complete genealogy from top sponsor
+    return build_tree(db, root_user)
