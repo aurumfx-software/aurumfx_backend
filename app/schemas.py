@@ -457,3 +457,18 @@ class SponsorTreeResponse(BaseModel):
     user_id: str
     fullname: str
     children: List[SponsorTreeNode] = []
+
+class MyRankResponse(BaseModel):
+    id: int
+    rank_name: str
+    criteria: Optional[str] = None
+
+class RankHolderResponse(BaseModel):
+    id: int
+    user_id: str
+    first_name: str
+    last_name: str | None = None
+    rank_id: int
+
+    class Config:
+        from_attributes = True

@@ -23,6 +23,7 @@ from app.routers import admin_referral_commission_settings
 from app.routers.admin_payout import router as admin_payout_router
 from app.routers.enroller import router as enroller_router
 from app.routers.user_genealogy import (router as user_genealogy_router)
+from app.routers import user_rank
 
 
 
@@ -85,6 +86,7 @@ app.include_router(admin_referral_commission_settings.router)
 app.include_router(admin_payout_router)
 app.include_router(enroller_router)
 app.include_router(user_genealogy_router)
+app.include_router(user_rank.router)
 
 
 
