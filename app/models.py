@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Float, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -764,6 +764,11 @@ class RankSetting(Base):
         Float,
         nullable=False,
         default=0
+    )
+
+    criteria = Column(
+    Text,
+    nullable=True
     )
 
     status = Column(

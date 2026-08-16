@@ -283,6 +283,7 @@ class RankSettingCreate(BaseModel):
     minimum_total_lots: int
     minimum_direct_sponsors: int
     reward_income: float
+    criteria:str
     status: bool = True
 
     conditions: List[RankConditionCreate]
@@ -293,6 +294,7 @@ class RankSettingUpdate(BaseModel):
     minimum_total_lots: int
     minimum_direct_sponsors: int
     reward_income: float
+    criteria:str
     status: bool
 
     conditions: List[RankConditionCreate]
@@ -304,6 +306,7 @@ class RankSettingResponse(BaseModel):
     minimum_total_lots: int
     minimum_direct_sponsors: int
     reward_income: float
+    criteria:str
     status: bool
 
     conditions: List[RankConditionResponse]

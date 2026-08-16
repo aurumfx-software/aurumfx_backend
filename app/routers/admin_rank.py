@@ -94,7 +94,8 @@ def create_rank(
         minimum_total_lots=request.minimum_total_lots,
         minimum_direct_sponsors=request.minimum_direct_sponsors,
         reward_income=request.reward_income,
-        status=request.status
+        status=request.status,
+        criteria=request.criteria
     )
 
     db.add(rank)
@@ -204,6 +205,7 @@ def update_rank(
     rank.minimum_direct_sponsors = request.minimum_direct_sponsors
     rank.reward_income = request.reward_income
     rank.status = request.status
+    rank.criteria = request.criteria
 
     db.commit()
     rank.rank_name = request.rank_name
@@ -212,6 +214,8 @@ def update_rank(
     rank.minimum_direct_sponsors = request.minimum_direct_sponsors
     rank.reward_income = request.reward_income
     rank.status = request.status
+    rank.criteria = request.criteria
+
 
     db.commit()
     db.query(
