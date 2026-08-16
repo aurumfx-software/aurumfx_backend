@@ -6,7 +6,7 @@ from app.models import (
     ReferralCommission,
     ReferralCommissionSetting,
     User,
-    Investment
+    Investment,
 )
 
 
@@ -17,7 +17,7 @@ from app.models import (
 def create_referral_commission(
     db,
     investment,
-    plan
+    plan,
 ):
     """
     Create referral commission when an investment is approved.
@@ -27,16 +27,34 @@ def create_referral_commission(
         Investment Approved
                 |
                 v
-        Calculate Referral Income
+        Find Investor
+                |
+                v
+        Find Enroller
+                |
+                v
+        Check Enroller Active Investment
+                |
+                v
+        Find Referral Commission Setting
+                |
+                v
+        Calculate Gross Commission
                 |
                 v
         Apply Daily Commission Limit
                 |
                 v
-        Store ReferralCommission as PENDING
+        Calculate Washout
                 |
                 v
-        Add amount to Wallet.pending_balance
+        commission_amount = gross - washout
+                |
+                v
+        Save ReferralCommission as PENDING
+                |
+                v
+        Add commission_amount to Wallet.pending_balance
                 |
                 v
         Create WalletTransaction as PENDING
@@ -46,7 +64,7 @@ def create_referral_commission(
     Admin fee is NOT deducted here.
 
     Admin fee will be deducted later during admin payout
-    from the user's TOTAL pending income:
+    from the user's total pending income:
 
         Referral
         + Level
@@ -66,10 +84,12 @@ def create_referral_commission(
     )
 
     if not investor:
+
         print(
             "Referral commission skipped: "
             "Investor not found"
         )
+
         return None
 
     # ======================================================
@@ -85,30 +105,35 @@ def create_referral_commission(
     )
 
     if not enroller:
+
         print(
             "Referral commission skipped: "
             "Enroller not found"
         )
+
         return None
 
     # ======================================================
-# CHECK ENROLLER ACTIVE INVESTMENT
-# ======================================================
+    # CHECK ENROLLER ACTIVE INVESTMENT
+    # ======================================================
 
     active_investment = (
         db.query(Investment)
         .filter(
             Investment.user_id == enroller.id,
-            Investment.investment_status == "ACTIVE"
+            Investment.investment_status == "ACTIVE",
         )
         .first()
     )
 
     if not active_investment:
+
         print(
             "Referral commission skipped: "
-            f"Enroller {enroller.user_id} has no active investment"
+            f"Enroller {enroller.user_id} "
+            "has no active investment"
         )
+
         return None
 
     # ======================================================
@@ -126,7 +151,8 @@ def create_referral_commission(
             ReferralCommissionSetting.minimum_amount
             <= investment.amount,
 
-            ReferralCommissionSetting.status == True
+            ReferralCommissionSetting.status
+            == True,
         )
         .filter(
             (
@@ -168,12 +194,16 @@ def create_referral_commission(
     )
 
     # ======================================================
-    # GROSS REFERRAL COMMISSION
+    # INVESTMENT AMOUNT
     # ======================================================
 
     investment_amount = float(
         investment.amount or 0
     )
+
+    # ======================================================
+    # GROSS REFERRAL COMMISSION
+    # ======================================================
 
     gross_commission = (
         investment_amount
@@ -182,27 +212,28 @@ def create_referral_commission(
 
     # ======================================================
     # DAILY COMMISSION LIMIT
-    #
-    # Admin fee is NOT considered here.
-    #
-    # Daily limit is applied to referral income itself.
     # ======================================================
 
     washout_amount = 0.0
 
     daily_limit = float(
-        referral_setting.daily_commission_limit or 0
+        referral_setting.daily_commission_limit
+        or 0
     )
+
+    # ======================================================
+    # CHECK TODAY'S COMMISSION
+    # ======================================================
 
     if daily_limit > 0:
 
-        today_pending = (
+        today_commission = (
             db.query(
                 func.coalesce(
                     func.sum(
                         ReferralCommission.commission_amount
                     ),
-                    0
+                    0,
                 )
             )
             .filter(
@@ -215,24 +246,28 @@ def create_referral_commission(
                 func.date(
                     ReferralCommission.created_at
                 )
-                == func.current_date()
+                == func.current_date(),
             )
             .scalar()
             or 0
         )
 
-        today_pending = float(
-            today_pending
+        today_commission = float(
+            today_commission
         )
+
+        # ==================================================
+        # REMAINING DAILY LIMIT
+        # ==================================================
 
         remaining_limit = (
             daily_limit
-            - today_pending
+            - today_commission
         )
 
-        # --------------------------------------------------
-        # Daily limit already reached
-        # --------------------------------------------------
+        # ==================================================
+        # DAILY LIMIT ALREADY REACHED
+        # ==================================================
 
         if remaining_limit <= 0:
 
@@ -240,9 +275,9 @@ def create_referral_commission(
                 gross_commission
             )
 
-        # --------------------------------------------------
-        # Commission exceeds remaining limit
-        # --------------------------------------------------
+        # ==================================================
+        # COMMISSION EXCEEDS REMAINING LIMIT
+        # ==================================================
 
         elif gross_commission > remaining_limit:
 
@@ -251,18 +286,28 @@ def create_referral_commission(
                 - remaining_limit
             )
 
+    else:
+
+        # No daily limit
+        today_commission = 0.0
+        remaining_limit = 0.0
+
     # ======================================================
-    # FINAL REFERRAL INCOME
+    # FINAL COMMISSION AFTER WASHOUT
     # ======================================================
 
-    final_amount = (
+    commission_amount = (
         gross_commission
         - washout_amount
     )
 
-    # Prevent negative value
-    if final_amount < 0:
-        final_amount = 0.0
+    # ======================================================
+    # PREVENT NEGATIVE VALUE
+    # ======================================================
+
+    if commission_amount < 0:
+
+        commission_amount = 0.0
 
     # ======================================================
     # WALLET
@@ -286,14 +331,14 @@ def create_referral_commission(
         wallet = Wallet(
             user_id=enroller.id,
 
-            # Paid/available balance
+            # Paid / available balance
             balance=0,
 
             # Pending income
             pending_balance=0,
 
             # Admin fee accumulated during payout
-            admin_fee=0
+            admin_fee=0,
         )
 
         db.add(wallet)
@@ -308,23 +353,25 @@ def create_referral_commission(
         wallet.pending_balance or 0
     )
 
-    # ------------------------------------------------------
-    # IMPORTANT
+    # ======================================================
+    # ADD FINAL COMMISSION TO PENDING BALANCE
     #
-    # Referral income is PENDING.
+    # IMPORTANT:
     #
-    # Therefore:
+    # commission_amount already excludes washout.
     #
-    #     pending_balance += final_amount
+    # Example:
     #
-    # NOT:
+    # Gross       = 10,000
+    # Washout     = 3,000
+    # Commission  = 7,000
     #
-    #     balance += final_amount
-    # ------------------------------------------------------
+    # Wallet gets only 7,000.
+    # ======================================================
 
     wallet.pending_balance = (
         pending_before
-        + final_amount
+        + commission_amount
     )
 
     # ======================================================
@@ -343,25 +390,31 @@ def create_referral_commission(
 
         commission_percentage=commission_percentage,
 
-        commission_amount=gross_commission,
+        # ==================================================
+        # IMPORTANT
+        #
+        # commission_amount is FINAL amount AFTER WASHOUT
+        # ==================================================
 
-        # --------------------------------------------------
-        # Admin fee is intentionally NOT stored here.
-        # --------------------------------------------------
-        #
-        # admin_fee_percentage = removed
-        # admin_fee_amount = removed
-        #
-        # Admin fee is calculated during payout from:
-        #
-        # referral + level + rank
-        #
+        commission_amount=commission_amount,
+
+        # ==================================================
+        # Nothing paid yet
+        # ==================================================
 
         paid_amount=0,
 
+        # ==================================================
+        # Amount removed because of daily limit
+        # ==================================================
+
         washout_amount=washout_amount,
 
-        status="PENDING"
+        # ==================================================
+        # Income is pending
+        # ==================================================
+
+        status="PENDING",
     )
 
     db.add(
@@ -378,22 +431,24 @@ def create_referral_commission(
 
         investment_id=investment.id,
 
-        amount=final_amount,
+        # ==================================================
+        # Only final commission is added
+        # ==================================================
+
+        amount=commission_amount,
 
         transaction_type="REFERRAL",
 
-        # --------------------------------------------------
-        # IMPORTANT
-        #
-        # Income is generated but not paid yet.
-        # --------------------------------------------------
+        # ==================================================
+        # Income generated but not paid yet
+        # ==================================================
 
         status="PENDING",
 
         remarks=(
             f"Referral Commission from "
             f"{investor.user_id}"
-        )
+        ),
     )
 
     db.add(
@@ -453,13 +508,23 @@ def create_referral_commission(
     )
 
     print(
+        "Today's Commission:",
+        today_commission
+    )
+
+    print(
+        "Remaining Daily Limit:",
+        remaining_limit
+    )
+
+    print(
         "Washout:",
         washout_amount
     )
 
     print(
-        "Final Referral Income:",
-        final_amount
+        "Final Commission:",
+        commission_amount
     )
 
     print(

@@ -983,3 +983,110 @@ class ReferralCommissionSetting(Base):
         "InvestmentPlan",
         backref="referral_commission_settings"
     )
+
+class PayoutHistory(Base):
+    __tablename__ = "payout_history"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    # ========================================================
+    # Income
+    # ========================================================
+
+    referral_income = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    level_income = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    rank_income = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    total_income = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    # ========================================================
+    # Admin Fee
+    # ========================================================
+
+    admin_fee_percentage = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    admin_fee = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    net_payable = Column(
+        Float,
+        nullable=False,
+        default=0
+    )
+
+    # ========================================================
+    # Payout Details
+    # ========================================================
+
+    payout_method = Column(
+        String(50),
+        nullable=False,
+        default="BANK_TRANSFER"
+    )
+
+    payout_information = Column(
+        String(1000),
+        nullable=True
+    )
+
+    # ========================================================
+    # Status
+    # ========================================================
+
+    status = Column(
+        String(20),
+        nullable=False,
+        default="PAID"
+    )
+
+    paid_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+
+    user = relationship(
+        "User",
+        foreign_keys=[user_id]
+    )
