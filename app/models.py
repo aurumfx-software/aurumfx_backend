@@ -32,6 +32,9 @@ class User(Base):
 
     #image
     profile_image = Column(String, nullable=True)
+    
+    #KYC
+    kyc_documents = relationship("UserKYC",back_populates="user",cascade="all, delete-orphan")
 
     # Nominee Details
     nominee_name = Column(String, nullable=False)
@@ -1094,4 +1097,68 @@ class PayoutHistory(Base):
     user = relationship(
         "User",
         foreign_keys=[user_id]
+    )
+
+# ==========================================================
+# USER KYC
+# ==========================================================
+
+class UserKYC(Base):
+    __tablename__ = "user_kyc"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    document_type = Column(
+        String,
+        nullable=False
+    )
+
+    file_name = Column(
+        String,
+        nullable=False
+    )
+
+    file_url = Column(
+        Text,
+        nullable=False
+    )
+
+    status = Column(
+        String,
+        nullable=False,
+        default="PENDING"
+    )
+
+    rejection_reason = Column(
+        Text,
+        nullable=True
+    )
+
+    uploaded_at = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+
+    updated_at = Column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
+    )
+
+    user = relationship(
+        "User",
+        back_populates="kyc_documents"
     )

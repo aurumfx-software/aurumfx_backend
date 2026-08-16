@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import date
 from typing import Optional, List
 from app.enums import GenderEnum, ClubEnum
@@ -472,3 +472,31 @@ class RankHolderResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class KYCResponse(BaseModel):
+    id: int
+    user_id: int
+    document_type: str
+    file_name: str
+    status: str
+    rejection_reason: Optional[str] = None
+    uploaded_at: datetime
+    updated_at: datetime
+    view_url: Optional[str] = None
+    expires_in: Optional[int] = None
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+class KYCListResponse(BaseModel):
+    id: int
+    user_id: int
+    document_type: str
+    file_name: str
+    status: str
+    rejection_reason: Optional[str] = None
+    uploaded_at: datetime
+    updated_at: datetime
+    view_url: str
+    expires_in: int
