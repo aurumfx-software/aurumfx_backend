@@ -18,9 +18,9 @@ class User(Base):
     country = Column(String, nullable=False)
     aadhar_no = Column(String, unique=True, nullable=False)
     city = Column(String, nullable=True)
-    zip_code = Column(String, nullable=False)
+    zip_code = Column(String, nullable=True)
     mobile = Column(String, nullable=False)
-    pan = Column(String, nullable=False)
+    pan = Column(String, nullable=True)
     gender = Column(String, nullable=True)
     club = Column(String, nullable=True)
      # Bank Details
@@ -37,13 +37,13 @@ class User(Base):
     kyc_documents = relationship("UserKYC",back_populates="user",cascade="all, delete-orphan")
 
     # Nominee Details
-    nominee_name = Column(String, nullable=False)
+    nominee_name = Column(String, nullable=True)
     nominee_relation = Column(String, nullable=True)
     nominee_gender = Column(String, nullable=True)
     nominee_dob = Column(Date, nullable=True)
     nominee_address = Column(String, nullable=True)
-    nominee_aadhar = Column(String, nullable=False)
-    nominee_mobile = Column(String, nullable=False)
+    nominee_aadhar = Column(String, nullable=True)
+    nominee_mobile = Column(String, nullable=True)
 
     placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
