@@ -2,7 +2,6 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,15 +26,6 @@ router = APIRouter(
     prefix="/admin/payout",
     tags=["Admin Payout"]
 )
-
-
-# ============================================================
-# PAYOUT REQUEST SCHEMA
-# ============================================================
-
-class PayoutRequest(BaseModel):
-    payout_method: str = "BANK_TRANSFER"
-    payout_information: str | None = None
 
 
 # ============================================================
@@ -64,14 +54,6 @@ def get_admin_fee_percentage(
 ) -> Decimal:
     """
     Get the latest active admin fee percentage.
-
-    Admin fee is applied to:
-
-        Referral
-        +
-        Level
-        +
-        Rank
     """
 
     fee_setting = (
@@ -142,8 +124,8 @@ def get_longest_investment(
     user_id: int
 ):
     """
-    Get user's approved investment with
-    the longest duration plan.
+    Get user's approved investment
+    with the longest duration plan.
     """
 
     return (
@@ -242,9 +224,9 @@ def get_pending_payouts(
         Level
         Rank
 
-    Admin fee is calculated from:
+    Admin fee:
 
-        Referral + Level + Rank
+        Calculated from total income.
     """
 
     admin_fee_percentage = (
@@ -261,7 +243,7 @@ def get_pending_payouts(
     for user in users:
 
         # ====================================================
-        # REFERRAL
+        # REFERRAL INCOME
         # ====================================================
 
         referral_pending = (
@@ -282,7 +264,7 @@ def get_pending_payouts(
         )
 
         # ====================================================
-        # LEVEL
+        # LEVEL INCOME
         # ====================================================
 
         level_pending = (
@@ -303,7 +285,7 @@ def get_pending_payouts(
         )
 
         # ====================================================
-        # RANK
+        # RANK INCOME
         # ====================================================
 
         rank_pending = (
@@ -323,6 +305,10 @@ def get_pending_payouts(
             or 0
         )
 
+        # ====================================================
+        # DECIMAL CONVERSION
+        # ====================================================
+
         referral_pending = money(
             referral_pending
         )
@@ -339,7 +325,7 @@ def get_pending_payouts(
         # TOTAL INCOME
         # ====================================================
 
-        total_income = (
+        total_income = money(
             referral_pending
             + level_pending
             + rank_pending
@@ -363,6 +349,7 @@ def get_pending_payouts(
         wallet_pending = Decimal("0.00")
 
         if wallet:
+
             wallet_pending = money(
                 wallet.pending_balance
             )
@@ -405,7 +392,10 @@ def get_pending_payouts(
             if plan:
 
                 plan_name = plan.plan_name
-                duration_months = plan.duration_months
+
+                duration_months = (
+                    plan.duration_months
+                )
 
         # ====================================================
         # RESULT
@@ -422,9 +412,9 @@ def get_pending_payouts(
                 f"{user.last_name or ''}"
             ).strip(),
 
-            # ------------------------------
+            # ----------------------------------------------
             # Income
-            # ------------------------------
+            # ----------------------------------------------
 
             "referral_income": float(
                 referral_pending
@@ -442,25 +432,25 @@ def get_pending_payouts(
                 total_income
             ),
 
-            # ------------------------------
+            # ----------------------------------------------
             # Wallet
-            # ------------------------------
+            # ----------------------------------------------
 
             "wallet_pending_balance": float(
                 wallet_pending
             ),
 
-            # ------------------------------
+            # ----------------------------------------------
             # Investment
-            # ------------------------------
+            # ----------------------------------------------
 
             "investment_plan": plan_name,
 
             "duration_months": duration_months,
 
-            # ------------------------------
-            # Admin fee
-            # ------------------------------
+            # ----------------------------------------------
+            # Admin Fee
+            # ----------------------------------------------
 
             "admin_fee_percentage": float(
                 admin_fee_percentage
@@ -470,17 +460,17 @@ def get_pending_payouts(
                 admin_fee
             ),
 
-            # ------------------------------
-            # Net
-            # ------------------------------
+            # ----------------------------------------------
+            # Net Payable
+            # ----------------------------------------------
 
             "net_payable": float(
                 net_payable
             ),
 
-            # ------------------------------
-            # Bank
-            # ------------------------------
+            # ----------------------------------------------
+            # Bank Details
+            # ----------------------------------------------
 
             "bank_details": {
 
@@ -509,7 +499,6 @@ def get_pending_payouts(
 @router.post("/{user_id}/pay")
 def pay_user(
     user_id: int,
-    payout_data: PayoutRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
@@ -542,33 +531,10 @@ def pay_user(
 
     PayoutHistory:
 
-        A permanent record is created for every payout.
+        A history record is created.
     """
 
     try:
-
-        # ====================================================
-        # VALIDATE PAYOUT METHOD
-        # ====================================================
-
-        payout_method = (
-            payout_data.payout_method.strip()
-            if payout_data.payout_method
-            else "BANK_TRANSFER"
-        )
-
-        if not payout_method:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Payout method is required"
-            )
-
-        payout_information = (
-            payout_data.payout_information.strip()
-            if payout_data.payout_information
-            else None
-        )
 
         # ====================================================
         # GET USER
@@ -600,7 +566,7 @@ def pay_user(
         )
 
         # ====================================================
-        # LOCK REFERRAL
+        # LOCK PENDING REFERRAL
         # ====================================================
 
         referral_records = (
@@ -621,7 +587,7 @@ def pay_user(
         )
 
         # ====================================================
-        # LOCK LEVEL
+        # LOCK PENDING LEVEL
         # ====================================================
 
         level_records = (
@@ -642,7 +608,7 @@ def pay_user(
         )
 
         # ====================================================
-        # LOCK RANK
+        # LOCK PENDING RANK
         # ====================================================
 
         rank_records = (
@@ -666,21 +632,20 @@ def pay_user(
         # TOTAL GROSS INCOME
         # ====================================================
 
-        total_income = (
+        total_income = money(
             referral_amount
             + level_amount
             + rank_amount
-        )
-
-        total_income = money(
-            total_income
         )
 
         if total_income <= 0:
 
             raise HTTPException(
                 status_code=400,
-                detail="No pending income available for payout"
+                detail=(
+                    "No pending income available "
+                    "for payout"
+                )
             )
 
         # ====================================================
@@ -697,14 +662,14 @@ def pay_user(
                 status_code=400,
                 detail=(
                     f"Wallet pending balance "
-                    f"({wallet_pending_before}) is less than "
-                    f"calculated pending income "
+                    f"({wallet_pending_before}) is less "
+                    f"than calculated pending income "
                     f"({total_income})."
                 )
             )
 
         # ====================================================
-        # GET LONGEST INVESTMENT
+        # GET LONGEST APPROVED INVESTMENT
         # ====================================================
 
         investment = get_longest_investment(
@@ -716,7 +681,9 @@ def pay_user(
 
             raise HTTPException(
                 status_code=400,
-                detail="User has no approved investment"
+                detail=(
+                    "User has no approved investment"
+                )
             )
 
         plan = investment.investment_plan
@@ -729,7 +696,7 @@ def pay_user(
             )
 
         # ====================================================
-        # ADMIN FEE %
+        # GET ADMIN FEE %
         # ====================================================
 
         admin_fee_percentage = (
@@ -737,7 +704,7 @@ def pay_user(
         )
 
         # ====================================================
-        # ADMIN FEE
+        # CALCULATE ADMIN FEE
         #
         # Referral + Level + Rank
         # ====================================================
@@ -761,7 +728,10 @@ def pay_user(
 
             raise HTTPException(
                 status_code=400,
-                detail="Net payable amount must be greater than zero"
+                detail=(
+                    "Net payable amount must be "
+                    "greater than zero"
+                )
             )
 
         # ====================================================
@@ -771,7 +741,7 @@ def pay_user(
         payment_time = datetime.utcnow()
 
         # ====================================================
-        # WALLET BEFORE
+        # WALLET BEFORE VALUES
         # ====================================================
 
         balance_before = money(
@@ -790,15 +760,23 @@ def pay_user(
         # UPDATE WALLET
         # ====================================================
 
+        # Gross income is removed
+        # from pending balance.
+
         wallet.pending_balance = money(
             pending_before
             - total_income
         )
 
+        # Net amount goes to wallet balance.
+
         wallet.balance = money(
             balance_before
             + net_payable
         )
+
+        # Admin fee is accumulated
+        # in wallet admin_fee.
 
         wallet.admin_fee = money(
             admin_fee_before
@@ -891,9 +869,9 @@ def pay_user(
 
             user_id=user.id,
 
-            # ------------------------------
+            # ----------------------------------------------
             # Income
-            # ------------------------------
+            # ----------------------------------------------
 
             referral_income=float(
                 referral_amount
@@ -911,9 +889,9 @@ def pay_user(
                 total_income
             ),
 
-            # ------------------------------
+            # ----------------------------------------------
             # Admin Fee
-            # ------------------------------
+            # ----------------------------------------------
 
             admin_fee_percentage=float(
                 admin_fee_percentage
@@ -927,17 +905,17 @@ def pay_user(
                 net_payable
             ),
 
-            # ------------------------------
+            # ----------------------------------------------
             # Payout Details
-            # ------------------------------
+            # ----------------------------------------------
 
-            payout_method=payout_method,
+            payout_method="BANK_TRANSFER",
 
-            payout_information=payout_information,
+            payout_information=None,
 
-            # ------------------------------
+            # ----------------------------------------------
             # Status
-            # ------------------------------
+            # ----------------------------------------------
 
             status="PAID",
 
@@ -946,10 +924,12 @@ def pay_user(
             created_at=payment_time
         )
 
-        db.add(payout_history)
+        db.add(
+            payout_history
+        )
 
         # ====================================================
-        # COMMIT EVERYTHING
+        # COMMIT
         # ====================================================
 
         db.commit()
@@ -959,7 +939,10 @@ def pay_user(
         # ====================================================
 
         db.refresh(wallet)
-        db.refresh(payout_history)
+
+        db.refresh(
+            payout_history
+        )
 
         # ====================================================
         # RESPONSE
@@ -1017,7 +1000,7 @@ def pay_user(
             ),
 
             # ----------------------------------------------
-            # Admin fee
+            # Admin Fee
             # ----------------------------------------------
 
             "admin_fee_percentage": float(
@@ -1029,23 +1012,11 @@ def pay_user(
             ),
 
             # ----------------------------------------------
-            # Net
+            # Net Payable
             # ----------------------------------------------
 
             "net_payable": float(
                 net_payable
-            ),
-
-            # ----------------------------------------------
-            # Payout Details
-            # ----------------------------------------------
-
-            "payout_method": (
-                payout_history.payout_method
-            ),
-
-            "payout_information": (
-                payout_history.payout_information
             ),
 
             # ----------------------------------------------
@@ -1080,8 +1051,33 @@ def pay_user(
             },
 
             # ----------------------------------------------
-            # Status
+            # Payout History
             # ----------------------------------------------
+
+            "payout_history": {
+
+                "id": payout_history.id,
+
+                "payout_method": (
+                    payout_history.payout_method
+                ),
+
+                "payout_information": (
+                    payout_history.payout_information
+                ),
+
+                "status": (
+                    payout_history.status
+                ),
+
+                "paid_at": (
+                    payout_history.paid_at
+                ),
+
+                "created_at": (
+                    payout_history.created_at
+                )
+            },
 
             "status": "PAID",
 
@@ -1091,6 +1087,7 @@ def pay_user(
     except HTTPException:
 
         db.rollback()
+
         raise
 
     except Exception as e:

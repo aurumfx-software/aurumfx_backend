@@ -25,6 +25,7 @@ from app.routers.enroller import router as enroller_router
 from app.routers.user_genealogy import (router as user_genealogy_router)
 from app.routers import user_rank
 from app.routers import user_kyc
+from app.routers import user_payout_history
 
 
 
@@ -90,6 +91,8 @@ app.include_router(enroller_router)
 app.include_router(user_genealogy_router)
 app.include_router(user_rank.router)
 app.include_router(user_kyc.router)
+app.include_router(user_payout_history.router)
+
 
 
 

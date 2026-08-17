@@ -447,7 +447,6 @@ def wallet_summary(
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
     user = get_logged_in_user(
         current_user,
         db
@@ -463,12 +462,17 @@ def wallet_summary(
 
     if not wallet:
         return {
-            "available_balance": 0,
-            "pending_balance": 0,
-            "actual_admin_fee": 0
+            "total_amount": 0,
+            "admin_fee": 0,
+            "amount": 0,
+            "pending_balance": 0
         }
 
-    available_balance = float(
+    # ========================================================
+    # WALLET VALUES
+    # ========================================================
+
+    balance = float(
         wallet.balance or 0
     )
 
@@ -476,67 +480,126 @@ def wallet_summary(
         wallet.pending_balance or 0
     )
 
+    actual_admin_fee = float(
+        wallet.admin_fee or 0
+    )
+
     # ========================================================
-    # ACTUAL ADMIN FEE
+    # CURRENT ADMIN FEE %
     # ========================================================
 
-    # If admin fee was already deducted during payout,
-    # use Wallet.admin_fee.
-    if wallet.admin_fee and wallet.admin_fee > 0:
+    fee_setting = (
+        db.query(AdminFeeSetting)
+        .filter(
+            AdminFeeSetting.status == True
+        )
+        .order_by(
+            AdminFeeSetting.id.desc()
+        )
+        .first()
+    )
 
-        actual_admin_fee = float(
-            wallet.admin_fee
+    admin_fee_percentage = 0
+
+    if fee_setting:
+
+        admin_fee_percentage = float(
+            fee_setting.fee_percentage or 0
         )
 
-    else:
+    # ========================================================
+    # PENDING ADMIN FEE
+    # ========================================================
+    #
+    # If income is still pending, admin fee has not yet
+    # been deducted from it.
+    #
+    # Example:
+    #
+    # pending = 12000
+    # fee = 2%
+    # pending fee = 240
+    # ========================================================
 
-        # Get current admin fee setting
-        fee_setting = (
-            db.query(AdminFeeSetting)
-            .filter(
-                AdminFeeSetting.status == True
-            )
-            .order_by(
-                AdminFeeSetting.id.desc()
-            )
-            .first()
-        )
+    pending_admin_fee = (
+        pending_balance
+        * admin_fee_percentage
+        / 100
+    )
 
-        if fee_setting:
+    # ========================================================
+    # TOTAL ADMIN FEE
+    #
+    # Already deducted fee
+    # +
+    # Expected fee from pending income
+    # ========================================================
 
-            admin_fee_percentage = float(
-                fee_setting.fee_percentage or 0
-            )
+    total_admin_fee = (
+        actual_admin_fee
+        + pending_admin_fee
+    )
 
-            # Calculate expected admin fee
-            # from current wallet amount.
-            total_wallet_amount = (
-                available_balance
-                + pending_balance
-            )
+    # ========================================================
+    # TOTAL GROSS AMOUNT
+    #
+    # Already paid NET amount
+    # +
+    # already deducted admin fee
+    # +
+    # pending GROSS income
+    #
+    # But when pending exists, the pending amount is already
+    # gross, so don't add pending admin fee again.
+    # ========================================================
 
-            actual_admin_fee = (
-                total_wallet_amount
-                * admin_fee_percentage
-                / 100
-            )
+    total_amount = (
+        balance
+        + actual_admin_fee
+        + pending_balance
+    )
 
-        else:
+    # ========================================================
+    # TOTAL AMOUNT AFTER ADMIN FEE
+    # ========================================================
+    #
+    # Gross total - all admin fees
+    # ========================================================
 
-            actual_admin_fee = 0
+    amount = (
+        total_amount
+        - total_admin_fee
+    )
+
+    if amount < 0:
+        amount = 0
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
 
     return {
 
-        "available_balance": available_balance,
-
-        "pending_balance": pending_balance,
+        "total_amount": round(
+            total_amount,
+            2
+        ),
 
         "admin_fee": round(
-            actual_admin_fee,
+            total_admin_fee,
+            2
+        ),
+
+        "amount": round(
+            amount,
+            2
+        ),
+
+        "pending_balance": round(
+            pending_balance,
             2
         )
     }
-
 @router.get("/transactions")
 def wallet_transaction_history(
     current_user: str = Depends(get_current_user),
