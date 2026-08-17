@@ -16,8 +16,8 @@ class RegisterUser(BaseModel):
 
     date_of_birth: date
     country: str
-    city: str
-    zip_code: str
+    city: str| None = None
+    zip_code: str| None = None
     mobile: str
     aadhar_no: str
 
