@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.models import (
     ReferralCommission,
     LevelCommissionHistory,
     UserRankHistory,
+    PayoutHistory,
 )
 
 
@@ -25,6 +27,15 @@ router = APIRouter(
     prefix="/admin/payout",
     tags=["Admin Payout"]
 )
+
+
+# ============================================================
+# PAYOUT REQUEST SCHEMA
+# ============================================================
+
+class PayoutRequest(BaseModel):
+    payout_method: str = "BANK_TRANSFER"
+    payout_information: str | None = None
 
 
 # ============================================================
@@ -117,7 +128,6 @@ def get_user_wallet(
         )
 
         db.add(wallet)
-
         db.flush()
 
     return wallet
@@ -211,23 +221,6 @@ def get_pending_rank(
         )
         .with_for_update()
         .all()
-    )
-
-
-# ============================================================
-# GET WALLET PENDING TOTAL
-# ============================================================
-
-def get_wallet_pending_total(
-    wallet
-):
-    """
-    pending_balance should represent
-    all generated but unpaid income.
-    """
-
-    return money(
-        wallet.pending_balance
     )
 
 
@@ -411,13 +404,8 @@ def get_pending_payouts(
 
             if plan:
 
-                plan_name = (
-                    plan.plan_name
-                )
-
-                duration_months = (
-                    plan.duration_months
-                )
+                plan_name = plan.plan_name
+                duration_months = plan.duration_months
 
         # ====================================================
         # RESULT
@@ -521,6 +509,7 @@ def get_pending_payouts(
 @router.post("/{user_id}/pay")
 def pay_user(
     user_id: int,
+    payout_data: PayoutRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
@@ -550,9 +539,36 @@ def pay_user(
         balance += net payable
 
         admin_fee += admin fee
+
+    PayoutHistory:
+
+        A permanent record is created for every payout.
     """
 
     try:
+
+        # ====================================================
+        # VALIDATE PAYOUT METHOD
+        # ====================================================
+
+        payout_method = (
+            payout_data.payout_method.strip()
+            if payout_data.payout_method
+            else "BANK_TRANSFER"
+        )
+
+        if not payout_method:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Payout method is required"
+            )
+
+        payout_information = (
+            payout_data.payout_information.strip()
+            if payout_data.payout_information
+            else None
+        )
 
         # ====================================================
         # GET USER
@@ -603,7 +619,7 @@ def pay_user(
             ),
             Decimal("0.00")
         )
-        
+
         # ====================================================
         # LOCK LEVEL
         # ====================================================
@@ -723,11 +739,6 @@ def pay_user(
         # ====================================================
         # ADMIN FEE
         #
-        # IMPORTANT:
-        #
-        # Admin fee is calculated from
-        # COMPLETE income.
-        #
         # Referral + Level + Rank
         # ====================================================
 
@@ -779,23 +790,15 @@ def pay_user(
         # UPDATE WALLET
         # ====================================================
 
-        # Remove complete gross income
-        # from pending balance.
-
         wallet.pending_balance = money(
             pending_before
             - total_income
         )
 
-        # Add only NET income to available balance.
-
         wallet.balance = money(
             balance_before
             + net_payable
         )
-
-        # Store deducted admin fee
-        # at wallet level.
 
         wallet.admin_fee = money(
             admin_fee_before
@@ -810,7 +813,6 @@ def pay_user(
 
             record.status = "PAID"
 
-            # Only set this if your model has this column.
             if hasattr(
                 record,
                 "payment_date"
@@ -827,6 +829,14 @@ def pay_user(
 
             record.status = "PAID"
 
+            if hasattr(
+                record,
+                "payment_date"
+            ):
+                record.payment_date = (
+                    payment_time
+                )
+
         # ====================================================
         # RANK → PAID
         # ====================================================
@@ -835,9 +845,13 @@ def pay_user(
 
             record.reward_paid = True
 
-            record.paid_at = (
-                payment_time
-            )
+            if hasattr(
+                record,
+                "paid_at"
+            ):
+                record.paid_at = (
+                    payment_time
+                )
 
         # ====================================================
         # WALLET TRANSACTIONS → PAID
@@ -870,12 +884,82 @@ def pay_user(
             transaction.status = "PAID"
 
         # ====================================================
-        # COMMIT
+        # CREATE PAYOUT HISTORY
+        # ====================================================
+
+        payout_history = PayoutHistory(
+
+            user_id=user.id,
+
+            # ------------------------------
+            # Income
+            # ------------------------------
+
+            referral_income=float(
+                referral_amount
+            ),
+
+            level_income=float(
+                level_amount
+            ),
+
+            rank_income=float(
+                rank_amount
+            ),
+
+            total_income=float(
+                total_income
+            ),
+
+            # ------------------------------
+            # Admin Fee
+            # ------------------------------
+
+            admin_fee_percentage=float(
+                admin_fee_percentage
+            ),
+
+            admin_fee=float(
+                admin_fee
+            ),
+
+            net_payable=float(
+                net_payable
+            ),
+
+            # ------------------------------
+            # Payout Details
+            # ------------------------------
+
+            payout_method=payout_method,
+
+            payout_information=payout_information,
+
+            # ------------------------------
+            # Status
+            # ------------------------------
+
+            status="PAID",
+
+            paid_at=payment_time,
+
+            created_at=payment_time
+        )
+
+        db.add(payout_history)
+
+        # ====================================================
+        # COMMIT EVERYTHING
         # ====================================================
 
         db.commit()
 
+        # ====================================================
+        # REFRESH
+        # ====================================================
+
         db.refresh(wallet)
+        db.refresh(payout_history)
 
         # ====================================================
         # RESPONSE
@@ -885,6 +969,10 @@ def pay_user(
 
             "message": (
                 "Payout completed successfully"
+            ),
+
+            "payout_history_id": (
+                payout_history.id
             ),
 
             "user_id": user.id,
@@ -949,6 +1037,18 @@ def pay_user(
             ),
 
             # ----------------------------------------------
+            # Payout Details
+            # ----------------------------------------------
+
+            "payout_method": (
+                payout_history.payout_method
+            ),
+
+            "payout_information": (
+                payout_history.payout_information
+            ),
+
+            # ----------------------------------------------
             # Wallet
             # ----------------------------------------------
 
@@ -979,6 +1079,10 @@ def pay_user(
                 )
             },
 
+            # ----------------------------------------------
+            # Status
+            # ----------------------------------------------
+
             "status": "PAID",
 
             "paid_at": payment_time
@@ -987,7 +1091,6 @@ def pay_user(
     except HTTPException:
 
         db.rollback()
-
         raise
 
     except Exception as e:
