@@ -11,29 +11,32 @@ class RegisterUser(BaseModel):
     last_name: str
     password: str
     confirm_password: str
+
     enroller_id: str | None = None
+
     date_of_birth: date
     country: str
     city: str
     zip_code: str
     mobile: str
     aadhar_no: str
-    pan: str
+
+    pan: str | None = None
     gender: GenderEnum
-    # club: ClubEnum
+
     # Bank
-    bank_account: str
-    bank_name: str
-    ifsc: str
+    bank_account: str | None = None
+    bank_name: str | None = None
+    ifsc: str | None = None
 
     # Nominee
-    nominee_name: str
-    nominee_relation: str
-    nominee_gender: str
-    nominee_dob: date
-    nominee_address: str
-    nominee_aadhar: str 
-    nominee_mobile: str
+    nominee_name: str | None = None
+    nominee_relation: str | None = None
+    nominee_gender: str | None = None
+    nominee_dob: date | None = None
+    nominee_address: str | None = None
+    nominee_aadhar: str | None = None
+    nominee_mobile: str | None = None
 
 
 class LoginUser(BaseModel):
