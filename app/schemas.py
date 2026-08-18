@@ -305,13 +305,13 @@ class RankSettingResponse(BaseModel):
     id: int
     rank_name: str
     rank_no: int
-    minimum_total_lots: int
-    minimum_direct_sponsors: int
-    reward_income: float
+    # minimum_total_lots: int
+    # minimum_direct_sponsors: int
+    # reward_income: float
     criteria:str
-    status: bool
+    # status: bool
 
-    conditions: List[RankConditionResponse]
+    # conditions: List[RankConditionResponse]
 
     class Config:
         from_attributes = True
@@ -471,6 +471,8 @@ class RankHolderResponse(BaseModel):
     first_name: str
     last_name: str | None = None
     rank_id: int
+    image: str | None = None
+
 
     class Config:
         from_attributes = True

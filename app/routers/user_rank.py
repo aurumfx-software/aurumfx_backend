@@ -75,7 +75,10 @@ def get_rank_holders(
             user_id=user.user_id,
             first_name=user.first_name,
             last_name=user.last_name,
-            rank_id=user.current_rank_id
+            rank_id=user.current_rank_id,
+            image=user.profile_image,
+
+
         )
         for user in users
     ]
