@@ -4,7 +4,6 @@ from typing import Optional, List
 from app.enums import GenderEnum, ClubEnum
 
 
-
 class RegisterUser(BaseModel):
     email: EmailStr
     first_name: str
@@ -503,3 +502,67 @@ class KYCListResponse(BaseModel):
     updated_at: datetime
     view_url: str
     expires_in: int
+
+
+class SupportTicketResponse(BaseModel):
+    message: str
+    ticket_id: int
+    ticket_number: str
+    status: str
+
+
+class SupportTicketListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ticket_id: int
+    ticket_number: str
+    subject: str
+    message: str
+    attachment: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SupportTicketListResponse(BaseModel):
+    tickets: list[SupportTicketListItem]
+
+class AdminSupportTicketListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ticket_id: int
+    ticket_number: str
+    user_id: str
+    subject: str
+    message: str
+    attachment: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminSupportTicketListResponse(BaseModel):
+    tickets: list[AdminSupportTicketListItem]
+
+class SupportTicketMessageResponse(BaseModel):
+    id: int
+    user_id: str
+    message: str
+    attachment: str | None = None
+    sender_type: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupportTicketDetailsResponse(BaseModel):
+    ticket_id: int
+    ticket_number: str
+    user_id: str
+    subject: str
+    message: str
+    attachment: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    replies: list[SupportTicketMessageResponse]

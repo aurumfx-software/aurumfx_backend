@@ -1162,3 +1162,97 @@ class UserKYC(Base):
         "User",
         back_populates="kyc_documents"
     )
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    ticket_number = Column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    user_id = Column(
+        String,
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
+
+    subject = Column(
+        String,
+        nullable=False,
+    )
+
+    message = Column(
+        Text,
+        nullable=False,
+    )
+
+    attachment = Column(
+        String,
+        nullable=True,
+    )
+
+    status = Column(
+        String,
+        nullable=False,
+        default="OPEN",
+    )
+
+    created_at = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+class SupportTicketMessage(Base):
+    __tablename__ = "support_ticket_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    ticket_id = Column(
+        Integer,
+        ForeignKey("support_tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id = Column(
+        String,
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
+
+    message = Column(
+        Text,
+        nullable=False,
+    )
+
+    attachment = Column(
+        String,
+        nullable=True,
+    )
+
+    sender_type = Column(
+        String,
+        nullable=False,
+    )
+    # USER / ADMIN
+
+    created_at = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
