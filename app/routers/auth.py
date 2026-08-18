@@ -313,11 +313,17 @@ def profile(
 
         "city": user.city,
 
-        "club": user.club,
+        "gender": user.gender,
+
+        "zip_code": user.zip_code,
+
+        "date_of_birth": user.date_of_birth,
+
+        "aadhar_no": user.aadhar_no,
+
+        "pan": user.pan,
 
         "role": user.role
-
-        
 
     }
 
@@ -376,34 +382,34 @@ def update_profile(
     # --------------------------------
     # Check Aadhar already exists
     # --------------------------------
-    if profile.aadhar_no != user.aadhar_no:
+    # if profile.aadhar_no != user.aadhar_no:
 
-        existing_aadhar = db.query(User).filter(
-            User.aadhar_no == profile.aadhar_no,
-            User.id != user.id
-        ).first()
+    #     existing_aadhar = db.query(User).filter(
+    #         User.aadhar_no == profile.aadhar_no,
+    #         User.id != user.id
+    #     ).first()
 
-        if existing_aadhar:
-            raise HTTPException(
-                status_code=400,
-                detail="Aadhar number already registered"
-            )
+    #     if existing_aadhar:
+    #         raise HTTPException(
+    #             status_code=400,
+    #             detail="Aadhar number already registered"
+    #         )
 
     # --------------------------------
     # Check PAN already exists
     # --------------------------------
-    if profile.pan != user.pan:
+    # if profile.pan != user.pan:
 
-        existing_pan = db.query(User).filter(
-            User.pan == profile.pan,
-            User.id != user.id
-        ).first()
+    #     existing_pan = db.query(User).filter(
+    #         User.pan == profile.pan,
+    #         User.id != user.id
+    #     ).first()
 
-        if existing_pan:
-            raise HTTPException(
-                status_code=400,
-                detail="PAN already registered"
-            )
+    #     if existing_pan:
+    #         raise HTTPException(
+    #             status_code=400,
+    #             detail="PAN already registered"
+    #         )
 
     # --------------------------------
     # Update profile
@@ -417,8 +423,8 @@ def update_profile(
     user.city = profile.city
     user.zip_code = profile.zip_code
     user.mobile = profile.mobile
-    user.aadhar_no = profile.aadhar_no
-    user.pan = profile.pan
+    # user.aadhar_no = profile.aadhar_no
+    # user.pan = profile.pan
     user.gender = profile.gender
 
     db.commit()
@@ -436,10 +442,10 @@ def update_profile(
             "city": user.city,
             "zip_code": user.zip_code,
             "mobile": user.mobile,
-            "aadhar_no": user.aadhar_no,
-            "pan": user.pan,
+            # "aadhar_no": user.aadhar_no,
+            # "pan": user.pan,
             "gender": user.gender,
-            "club": user.club,
+            # "club": user.club,
             "role": user.role
         }
     }

@@ -334,8 +334,8 @@ class UpdateProfile(BaseModel):
     city: str
     zip_code: str
     mobile: str
-    aadhar_no: str
-    pan: str
+    # aadhar_no: str
+    # pan: str
     gender: GenderEnum
 
 
