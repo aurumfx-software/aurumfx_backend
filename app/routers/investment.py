@@ -94,17 +94,17 @@ def create_investment(
         )
 
     # Validate Enroller
-    enroller = (
-        db.query(User)
-        .filter(User.user_id == investment.enroller_id)
-        .first()
-    )
+    # enroller = (
+    #     db.query(User)
+    #     .filter(User.user_id == investment.enroller_id)
+    #     .first()
+    # )
 
-    if not enroller:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Enroller ID"
-        )
+    # if not enroller:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Invalid Enroller ID"
+    #     )
 
     # Enroller should be Admin
     # if enroller.role != "ADMIN":
@@ -179,7 +179,10 @@ def create_investment(
 
         payment_proof=None,
 
-        enroller_id=investment.enroller_id,
+        # enroller_id=investment.enroller_id,
+
+        enroller_id=user.enroller_id,
+
 
         investment_status="PENDING",
 

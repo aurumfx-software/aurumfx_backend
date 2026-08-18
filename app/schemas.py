@@ -96,7 +96,7 @@ class InvestmentCreate(BaseModel):
     return_type_id: int
     amount: float = Field(..., ge=5000)
     bank_transaction_id: str
-    enroller_id: str
+    # enroller_id: str
     investment_date: date
 
 class InvestmentResponse(BaseModel):
@@ -481,30 +481,54 @@ class KYCResponse(BaseModel):
     id: int
     user_id: int
     document_type: str
-    file_name: str
+
+    front_file_name: str
+    back_file_name: str | None = None
+
+    aadhar_no: str | None = None
+    pan: str | None = None
+
     status: str
-    rejection_reason: Optional[str] = None
+    rejection_reason: str | None = None
+
     uploaded_at: datetime
     updated_at: datetime
-    view_url: Optional[str] = None
-    expires_in: Optional[int] = None
+
+    front_url: str | None = None
+    back_url: str | None = None
+
+    expires_in: int | None = None
+
     model_config = ConfigDict(
         from_attributes=True
     )
 
 
-class KYCListResponse(BaseModel):
+class KYCResponse(BaseModel):
     id: int
     user_id: int
     document_type: str
-    file_name: str
+
+    front_file_name: str
+    back_file_name: str | None = None
+
+    aadhar_no: str | None = None
+    pan: str | None = None
+
     status: str
-    rejection_reason: Optional[str] = None
+    rejection_reason: str | None = None
+
     uploaded_at: datetime
     updated_at: datetime
-    view_url: str
-    expires_in: int
 
+    front_url: str | None = None
+    back_url: str | None = None
+
+    expires_in: int | None = None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 class SupportTicketResponse(BaseModel):
     message: str

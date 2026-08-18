@@ -1124,14 +1124,26 @@ class UserKYC(Base):
         nullable=False
     )
 
-    file_name = Column(
+    # Front document
+    front_file_name = Column(
         String,
         nullable=False
     )
 
-    file_url = Column(
+    front_file_url = Column(
         Text,
         nullable=False
+    )
+
+    # Back document
+    back_file_name = Column(
+        String,
+        nullable=True
+    )
+
+    back_file_url = Column(
+        Text,
+        nullable=True
     )
 
     status = Column(
