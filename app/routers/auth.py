@@ -759,3 +759,22 @@ def change_password(
     return {
         "message": "Password changed successfully"
     }
+
+@router.get("/image")
+def get_profile_image(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+    ):
+    user = db.query(User).filter(
+        User.user_id == current_user
+    ).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return {
+        "user_id": user.user_id,
+        "profile_image": user.profile_image
+    }
