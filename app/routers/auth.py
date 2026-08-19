@@ -802,6 +802,49 @@ async def update_bank_details(
         }
     }
 
+@router.get("/profile/bank-details")
+def get_bank_details(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # --------------------------------
+    # Find logged-in user
+    # --------------------------------
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return {
+        "message": "Bank details fetched successfully",
+
+        "bank_details": {
+            "bank_account": user.bank_account,
+            "bank_name": user.bank_name,
+            "ifsc": user.ifsc,
+            "bank_proof": user.bank_proof
+        },
+
+        "nominee_details": {
+            "nominee_name": user.nominee_name,
+            "nominee_relation": user.nominee_relation,
+            "nominee_gender": user.nominee_gender,
+            "nominee_dob": user.nominee_dob,
+            "nominee_address": user.nominee_address,
+            "nominee_aadhar": user.nominee_aadhar,
+            "nominee_mobile": user.nominee_mobile,
+            "nominee_aadhar_front": user.nominee_aadhar_front,
+            "nominee_aadhar_back": user.nominee_aadhar_back
+        }
+    }
+
 @router.put("/change-password")
 def change_password(
     password_data: ChangePassword,
