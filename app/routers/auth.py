@@ -10,12 +10,7 @@ from app.utils.jwt import create_access_token
 from app.core.security import get_current_user
 from app.services.binary_tree import  find_placement_parent
 from app.services.activity_service import get_activity_history
-from app.services.spaces_service import upload_profile_image, upload_bank_proof
-from app.services.spaces_service import (
-    upload_profile_image,
-    upload_bank_proof,
-    get_spaces_url
-)
+from app.services.spaces_service import upload_profile_image, upload_bank_proof, get_presigned_url
 
 
 
@@ -831,11 +826,9 @@ def get_bank_details(
             "bank_account": user.bank_account,
             "bank_name": user.bank_name,
             "ifsc": user.ifsc,
-
-            "bank_proof": get_spaces_url(
+            "bank_proof": get_presigned_url(
                 user.bank_proof
             ),
-
             "bank_status": user.bank_status
         },
 
@@ -847,17 +840,14 @@ def get_bank_details(
             "nominee_address": user.nominee_address,
             "nominee_aadhar": user.nominee_aadhar,
             "nominee_mobile": user.nominee_mobile,
-
-            "nominee_aadhar_front": get_spaces_url(
+            "nominee_aadhar_front": get_presigned_url(
                 user.nominee_aadhar_front
             ),
-
-            "nominee_aadhar_back": get_spaces_url(
+            "nominee_aadhar_back": get_presigned_url(
                 user.nominee_aadhar_back
             )
         }
     }
-
 @router.put("/change-password")
 def change_password(
     password_data: ChangePassword,
