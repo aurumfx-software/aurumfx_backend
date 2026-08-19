@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile,File,Form
 from sqlalchemy.orm import Session
 from datetime import date
 from app.database import get_db
@@ -10,6 +10,9 @@ from app.schemas import (
 from app.core.security import get_current_user
 from app.utils.investment_id import generate_investment_id
 from app.utils.return_date import calculate_return_date
+from app.services.spaces_service import (
+    upload_investment_payment_proof, get_presigned_url
+)
 
 router = APIRouter(
     prefix="/investments",
@@ -20,14 +23,231 @@ router = APIRouter(
 # -----------------------------------
 # Create Investment
 # -----------------------------------
+# @router.post("/", response_model=InvestmentResponse)
+# def create_investment(
+#     investment: InvestmentCreate,
+#     current_user: str = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+
+#     # Logged in User
+#     user = (
+#         db.query(User)
+#         .filter(User.user_id == current_user)
+#         .first()
+#     )
+
+#     if not user:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="User not found"
+#         )
+
+#     # Investment Plan
+#     plan = (
+#         db.query(InvestmentPlan)
+#         .filter(
+#             InvestmentPlan.id == investment.investment_plan_id,
+#             InvestmentPlan.status == True
+#         )
+#         .first()
+#     )
+
+#     if not plan:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Investment Plan not found"
+#         )
+#  # --------------------------------------------------
+#     # Lot Setting
+#     # --------------------------------------------------
+#     lot_setting = (
+#         db.query(LotSetting)
+#         .filter(LotSetting.status == 1)
+#         .first()
+#     )
+
+#     if not lot_setting:
+#         raise HTTPException(
+#             status_code=500,
+#             detail="Lot setting is not configured"
+#         )
+
+#     lot_amount = float(lot_setting.amount)
+
+#     if lot_amount <= 0:
+#         raise HTTPException(
+#             status_code=500,
+#             detail="Invalid lot amount configuration"
+#         )
+
+
+#     # Minimum Amount
+#     if investment.amount < 5000:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Minimum investment amount is ₹5000."
+#         )
+
+#     # Multiple of 5000
+#     if investment.amount % 5000 != 0:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Investment amount must be a multiple of ₹5000."
+#         )
+
+#     # Validate Enroller
+#     # enroller = (
+#     #     db.query(User)
+#     #     .filter(User.user_id == investment.enroller_id)
+#     #     .first()
+#     # )
+
+#     # if not enroller:
+#     #     raise HTTPException(
+#     #         status_code=400,
+#     #         detail="Invalid Enroller ID"
+#     #     )
+
+#     # Enroller should be Admin
+#     # if enroller.role != "ADMIN":
+#     #     raise HTTPException(
+#     #         status_code=400,
+#     #         detail="Enroller must be an Admin."
+#     #     )
+
+#     # Lots
+#     # lots = int(investment.amount / 5000)
+#     lots = int(investment.amount / lot_amount)
+
+#     # Monthly Return Amount
+#     monthly_return_amount = (
+#         investment.amount *
+#         plan.return_percentage
+#     ) / 100
+
+#     # Return Balance
+#     return_balance = plan.duration_months
+
+#     # Return Date
+#     return_date = calculate_return_date(
+#         investment.investment_date
+#     )
+
+#     # Return Type
+#     return_type = (
+#         db.query(ReturnType)
+#         .filter(
+#             ReturnType.id == investment.return_type_id,
+#             ReturnType.status == True
+#         )
+#         .first()
+#     )
+
+#     if not return_type:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Return type not found"
+#         )
+
+#     # Investment ID
+#     investment_id = generate_investment_id(db)
+
+#     # Save
+#     db_investment = Investment(
+
+#         investment_id=investment_id,
+
+#         user_id=user.id,
+        
+#         return_type_id=return_type.id,
+
+#         investment_plan_id=plan.id,
+
+#         amount=investment.amount,
+
+#         lots=lots,
+
+#         monthly_return_percentage=plan.return_percentage,
+
+#         monthly_return_amount=monthly_return_amount,
+
+#         return_which=0,
+
+#         return_balance=return_balance,
+
+#         return_date=return_date,
+
+#         bank_transaction_id=investment.bank_transaction_id,
+
+#         payment_proof=None,
+
+#         # enroller_id=investment.enroller_id,
+
+#         enroller_id=user.enroller_id,
+
+
+#         investment_status="PENDING",
+
+#         approval_status="PENDING",
+
+#         investment_date=investment.investment_date
+
+#     )
+
+#     db.add(db_investment)
+#     db.commit()
+#     db.refresh(db_investment)
+
+#     return InvestmentResponse(
+
+#         id=db_investment.id,
+
+#         investment_id=db_investment.investment_id,
+
+#         return_type=return_type.return_type,
+
+#         plan_name=plan.plan_name,
+
+#         amount=db_investment.amount,
+
+#         lots=db_investment.lots,
+
+#         monthly_return_percentage=db_investment.monthly_return_percentage,
+
+#         monthly_return_amount=db_investment.monthly_return_amount,
+
+#         return_which=db_investment.return_which,
+
+#         return_balance=db_investment.return_balance,
+
+#         return_date=db_investment.return_date,
+
+#         investment_status=db_investment.investment_status,
+
+#         approval_status=db_investment.approval_status,
+
+#         investment_date=db_investment.investment_date
+
+#     )
+
 @router.post("/", response_model=InvestmentResponse)
-def create_investment(
-    investment: InvestmentCreate,
+async def create_investment(
+    investment_plan_id: int = Form(...),
+    amount: float = Form(...),
+    return_type_id: int = Form(...),
+    bank_transaction_id: str = Form(...),
+    investment_date: date = Form(...),
+
+    payment_proof: UploadFile = File(...),
+
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
+    # --------------------------------------------------
     # Logged in User
+    # --------------------------------------------------
+
     user = (
         db.query(User)
         .filter(User.user_id == current_user)
@@ -40,11 +260,14 @@ def create_investment(
             detail="User not found"
         )
 
+    # --------------------------------------------------
     # Investment Plan
+    # --------------------------------------------------
+
     plan = (
         db.query(InvestmentPlan)
         .filter(
-            InvestmentPlan.id == investment.investment_plan_id,
+            InvestmentPlan.id == investment_plan_id,
             InvestmentPlan.status == True
         )
         .first()
@@ -55,9 +278,11 @@ def create_investment(
             status_code=404,
             detail="Investment Plan not found"
         )
- # --------------------------------------------------
+
+    # --------------------------------------------------
     # Lot Setting
     # --------------------------------------------------
+
     lot_setting = (
         db.query(LotSetting)
         .filter(LotSetting.status == 1)
@@ -78,64 +303,62 @@ def create_investment(
             detail="Invalid lot amount configuration"
         )
 
-
+    # --------------------------------------------------
     # Minimum Amount
-    if investment.amount < 5000:
+    # --------------------------------------------------
+
+    if amount < 5000:
         raise HTTPException(
             status_code=400,
             detail="Minimum investment amount is ₹5000."
         )
 
+    # --------------------------------------------------
     # Multiple of 5000
-    if investment.amount % 5000 != 0:
+    # --------------------------------------------------
+
+    if amount % 5000 != 0:
         raise HTTPException(
             status_code=400,
             detail="Investment amount must be a multiple of ₹5000."
         )
 
-    # Validate Enroller
-    # enroller = (
-    #     db.query(User)
-    #     .filter(User.user_id == investment.enroller_id)
-    #     .first()
-    # )
-
-    # if not enroller:
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail="Invalid Enroller ID"
-    #     )
-
-    # Enroller should be Admin
-    # if enroller.role != "ADMIN":
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail="Enroller must be an Admin."
-    #     )
-
+    # --------------------------------------------------
     # Lots
-    # lots = int(investment.amount / 5000)
-    lots = int(investment.amount / lot_amount)
+    # --------------------------------------------------
 
-    # Monthly Return Amount
+    lots = int(amount / lot_amount)
+
+    # --------------------------------------------------
+    # Monthly Return
+    # --------------------------------------------------
+
     monthly_return_amount = (
-        investment.amount *
-        plan.return_percentage
+        amount * plan.return_percentage
     ) / 100
 
+    # --------------------------------------------------
     # Return Balance
+    # --------------------------------------------------
+
     return_balance = plan.duration_months
 
+    # --------------------------------------------------
     # Return Date
+    # --------------------------------------------------
+
     return_date = calculate_return_date(
-        investment.investment_date
+        investment_date
     )
 
+    # --------------------------------------------------
     # Return Type
+    # --------------------------------------------------
+
     return_type = (
         db.query(ReturnType)
         .filter(
-            ReturnType.id == investment.return_type_id,
+            ReturnType.id == return_type_id,
             ReturnType.status == True
         )
         .first()
@@ -147,21 +370,64 @@ def create_investment(
             detail="Return type not found"
         )
 
+    # --------------------------------------------------
+    # Validate Payment Proof
+    # --------------------------------------------------
+
+    allowed_types = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "application/pdf": ".pdf"
+    }
+
+    if payment_proof.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment proof must be JPG, PNG or PDF"
+        )
+
+    payment_proof_content = await payment_proof.read()
+
+    max_size = 5 * 1024 * 1024
+
+    if len(payment_proof_content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment proof must be less than 5 MB"
+        )
+
+    # --------------------------------------------------
+    # Upload Payment Proof
+    # --------------------------------------------------
+
+    payment_proof_key = upload_investment_payment_proof(
+        file_content=payment_proof_content,
+        filename=payment_proof.filename or "payment_proof",
+        content_type=payment_proof.content_type,
+        user_id=user.user_id
+    )
+
+    # --------------------------------------------------
     # Investment ID
+    # --------------------------------------------------
+
     investment_id = generate_investment_id(db)
 
-    # Save
+    # --------------------------------------------------
+    # Save Investment
+    # --------------------------------------------------
+
     db_investment = Investment(
 
         investment_id=investment_id,
 
         user_id=user.id,
-        
+
         return_type_id=return_type.id,
 
         investment_plan_id=plan.id,
 
-        amount=investment.amount,
+        amount=amount,
 
         lots=lots,
 
@@ -175,26 +441,26 @@ def create_investment(
 
         return_date=return_date,
 
-        bank_transaction_id=investment.bank_transaction_id,
+        bank_transaction_id=bank_transaction_id,
 
-        payment_proof=None,
-
-        # enroller_id=investment.enroller_id,
+        payment_proof=payment_proof_key,
 
         enroller_id=user.enroller_id,
-
 
         investment_status="PENDING",
 
         approval_status="PENDING",
 
-        investment_date=investment.investment_date
-
+        investment_date=investment_date
     )
 
     db.add(db_investment)
     db.commit()
     db.refresh(db_investment)
+
+    # --------------------------------------------------
+    # Response
+    # --------------------------------------------------
 
     return InvestmentResponse(
 
@@ -225,7 +491,6 @@ def create_investment(
         approval_status=db_investment.approval_status,
 
         investment_date=db_investment.investment_date
-
     )
 
 
@@ -321,6 +586,7 @@ def my_investments(
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
                 investment_date=inv.investment_date,
+                payment_proof=get_presigned_url(inv.payment_proof),
             )
         )
 
@@ -394,4 +660,7 @@ def investment_details(
         investment_status=investment.investment_status,
         approval_status=investment.approval_status,
         investment_date=investment.investment_date,
+        payment_proof=get_presigned_url(
+        investment.payment_proof
+    )
     )

@@ -70,7 +70,7 @@
 #     return f"{SPACES_ENDPOINT.rstrip('/')}/{object_key.lstrip('/')}"
 
 import os
-
+import uuid
 import boto3
 from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError
@@ -194,3 +194,32 @@ def get_presigned_url(
         raise Exception(
             f"Failed to generate presigned URL: {str(e)}"
         )
+
+def upload_investment_payment_proof(
+    file_content: bytes,
+    filename: str,
+    content_type: str,
+    user_id: str
+):
+    extension = ""
+
+    if filename:
+        _, ext = os.path.splitext(filename)
+        extension = ext.lower()
+
+    unique_filename = f"{uuid.uuid4()}{extension}"
+
+    key = (
+        f"user_investment_proofs/"
+        f"{user_id}/"
+        f"{unique_filename}"
+    )
+
+    spaces_client.put_object(
+        Bucket=SPACES_BUCKET,
+        Key=key,
+        Body=file_content,
+        ContentType=content_type
+    )
+
+    return key

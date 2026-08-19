@@ -114,7 +114,7 @@ class InvestmentResponse(BaseModel):
     investment_status: str
     approval_status: str
     investment_date: date
-
+    payment_proof: str | None = None
     class Config:
         from_attributes = True
 
