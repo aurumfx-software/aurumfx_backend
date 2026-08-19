@@ -28,7 +28,11 @@ class User(Base):
     bank_name = Column(String, nullable=True)
     ifsc = Column(String, nullable=True)
     bank_proof = Column(String, nullable=True)
-
+    bank_status = Column(
+            String,
+            nullable=False,
+            default="PENDING"
+        )
 
     #image
     profile_image = Column(String, nullable=True)

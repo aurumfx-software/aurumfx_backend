@@ -829,7 +829,8 @@ def get_bank_details(
             "bank_account": user.bank_account,
             "bank_name": user.bank_name,
             "ifsc": user.ifsc,
-            "bank_proof": user.bank_proof
+            "bank_proof": user.bank_proof,
+            "bank_status": user.bank_status
         },
 
         "nominee_details": {

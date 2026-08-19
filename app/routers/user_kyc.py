@@ -674,15 +674,15 @@ async def upload_kyc_document(
 
         import re
 
-        if not re.fullmatch(
-            r"[A-Z]{5}[0-9]{4}[A-Z]",
-            pan,
-        ):
+        # if not re.fullmatch(
+        #     r"[A-Z]{5}[0-9]{4}[A-Z]",
+        #     pan,
+        # ):
 
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid PAN number.",
-            )
+        #     raise HTTPException(
+        #         status_code=400,
+        #         detail="Invalid PAN number.",
+        #     )
 
         # --------------------------------------------------
         # CHECK PAN UNIQUE
