@@ -337,6 +337,7 @@ class UpdateProfile(BaseModel):
     # aadhar_no: str
     # pan: str
     gender: GenderEnum
+    profile_image: str
 
 
 class ChangePassword(BaseModel):

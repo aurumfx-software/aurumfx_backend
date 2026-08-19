@@ -315,6 +315,8 @@ def profile(
 
         "gender": user.gender,
 
+        "profile_image": user.profile_image,
+
         "zip_code": user.zip_code,
 
         "date_of_birth": user.date_of_birth,
