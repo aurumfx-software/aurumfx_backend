@@ -1032,10 +1032,18 @@ def get_my_kyc(
     db: Session = Depends(get_db),
 ):
 
+    # ======================================================
+    # GET DATABASE USER
+    # ======================================================
+
     user = get_database_user(
         current_user=current_user,
         db=db,
     )
+
+    # ======================================================
+    # GET KYC DOCUMENTS
+    # ======================================================
 
     documents = (
         db.query(UserKYC)
@@ -1048,14 +1056,26 @@ def get_my_kyc(
         .all()
     )
 
-    response = []
+    kyc_documents = []
+
+    # ======================================================
+    # BUILD DOCUMENT RESPONSE
+    # ======================================================
 
     for kyc in documents:
+
+        # --------------------------------------------------
+        # FRONT URL
+        # --------------------------------------------------
 
         front_url = generate_presigned_url(
             kyc.front_file_url,
             expires_in=300,
         )
+
+        # --------------------------------------------------
+        # BACK URL
+        # --------------------------------------------------
 
         back_url = None
 
@@ -1066,11 +1086,17 @@ def get_my_kyc(
                 expires_in=300,
             )
 
-        response.append(
+        # --------------------------------------------------
+        # DOCUMENT
+        # --------------------------------------------------
+
+        kyc_documents.append(
             {
                 "id": kyc.id,
-                "user_id": kyc.user_id,
-                "document_type": kyc.document_type,
+
+                "document_type": (
+                    kyc.document_type
+                ),
 
                 "front_file_name": (
                     kyc.front_file_name
@@ -1080,26 +1106,40 @@ def get_my_kyc(
                     kyc.back_file_name
                 ),
 
-                "aadhar_no": user.aadhar_no,
-                "pan": user.pan,
+                "status": (
+                    kyc.status
+                ),
 
-                "status": kyc.status,
                 "rejection_reason": (
                     kyc.rejection_reason
                 ),
 
-                "uploaded_at": kyc.uploaded_at,
-                "updated_at": kyc.updated_at,
+                "uploaded_at": (
+                    kyc.uploaded_at
+                ),
+
+                "updated_at": (
+                    kyc.updated_at
+                ),
 
                 "front_url": front_url,
+
                 "back_url": back_url,
 
                 "expires_in": 300,
             }
         )
 
-    return response
+    # ======================================================
+    # FINAL RESPONSE
+    # ======================================================
 
+    return {
+        "user_id": user.id,
+        "aadhar_no": user.aadhar_no,
+        "pan": user.pan,
+        "documents": kyc_documents,
+    }
 
 # ==========================================================
 # GET SINGLE KYC
