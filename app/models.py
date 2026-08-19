@@ -45,6 +45,10 @@ class User(Base):
     nominee_aadhar = Column(String, nullable=True)
     nominee_mobile = Column(String, nullable=True)
 
+    # Nominee Aadhaar Documents
+    nominee_aadhar_front = Column(String, nullable=True)
+    nominee_aadhar_back = Column(String, nullable=True)
+
     placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
     current_rank_id = Column(Integer,ForeignKey("rank_settings.id"),nullable=True)

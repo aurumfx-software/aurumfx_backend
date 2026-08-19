@@ -62,15 +62,15 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
         )
     
     # Email already exists
-    existing_email = db.query(User).filter(
-        User.email == user.email
-    ).first()
+    # existing_email = db.query(User).filter(
+    #     User.email == user.email
+    # ).first()
 
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+    # if existing_email:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Email already registered"
+    #     )
 
     # Aadhaar already exists
     if db.query(User).filter(User.aadhar_no == user.aadhar_no).first():
@@ -562,6 +562,12 @@ async def update_bank_details(
     proof_document: UploadFile = File(...),
 
     # -----------------------------
+    # Nominee Aadhaar
+    # -----------------------------
+    nominee_aadhar_front: UploadFile = File(...),
+    nominee_aadhar_back: UploadFile = File(...),
+
+    # -----------------------------
     # Authentication
     # -----------------------------
     current_user: str = Depends(get_current_user),
@@ -593,14 +599,19 @@ async def update_bank_details(
             detail="Invalid IFSC code"
         )
 
-    # --------------------------------
-    # Validate Bank Proof
-    # --------------------------------
+    # =================================
+    # Allowed File Types
+    # =================================
+
     allowed_types = {
         "image/jpeg": ".jpg",
         "image/png": ".png",
         "application/pdf": ".pdf"
     }
+
+    # =================================
+    # Validate Bank Proof
+    # =================================
 
     if proof_document.content_type not in allowed_types:
         raise HTTPException(
@@ -608,36 +619,112 @@ async def update_bank_details(
             detail="Only JPG, PNG and PDF bank proof documents are allowed"
         )
 
-    # --------------------------------
-    # Read file
-    # --------------------------------
-    file_content = await proof_document.read()
+    bank_proof_content = await proof_document.read()
 
-    # --------------------------------
-    # Maximum 5 MB
-    # --------------------------------
     max_size = 5 * 1024 * 1024
 
-    if len(file_content) > max_size:
+    if len(bank_proof_content) > max_size:
         raise HTTPException(
             status_code=400,
             detail="Bank proof document must be less than 5 MB"
         )
 
-    # --------------------------------
-    # Generate filename
-    # --------------------------------
-    extension = allowed_types[proof_document.content_type]
+    # =================================
+    # Validate Nominee Aadhaar Front
+    # =================================
 
-    filename = f"{user.user_id}{extension}"
+    if nominee_aadhar_front.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Nominee Aadhaar front must be JPG, PNG or PDF"
+        )
 
-    # --------------------------------
-    # Upload to DigitalOcean Spaces
-    # --------------------------------
+    nominee_front_content = await nominee_aadhar_front.read()
+
+    if len(nominee_front_content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="Nominee Aadhaar front must be less than 5 MB"
+        )
+
+    # =================================
+    # Validate Nominee Aadhaar Back
+    # =================================
+
+    if nominee_aadhar_back.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Nominee Aadhaar back must be JPG, PNG or PDF"
+        )
+
+    nominee_back_content = await nominee_aadhar_back.read()
+
+    if len(nominee_back_content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="Nominee Aadhaar back must be less than 5 MB"
+        )
+
+    # =================================
+    # Generate Extensions
+    # =================================
+
+    bank_extension = allowed_types[proof_document.content_type]
+
+    nominee_front_extension = allowed_types[
+        nominee_aadhar_front.content_type
+    ]
+
+    nominee_back_extension = allowed_types[
+        nominee_aadhar_back.content_type
+    ]
+
+    # =================================
+    # Generate Filenames
+    # =================================
+
+    bank_filename = (
+        f"{user.user_id}_bank_proof{bank_extension}"
+    )
+
+    nominee_front_filename = (
+        f"{user.user_id}_nominee_aadhar_front"
+        f"{nominee_front_extension}"
+    )
+
+    nominee_back_filename = (
+        f"{user.user_id}_nominee_aadhar_back"
+        f"{nominee_back_extension}"
+    )
+
+    # =================================
+    # Upload Bank Proof
+    # =================================
+
     proof_key = upload_bank_proof(
-        file_content=file_content,
-        filename=filename,
+        file_content=bank_proof_content,
+        filename=bank_filename,
         content_type=proof_document.content_type
+    )
+
+    # =================================
+    # Upload Nominee Aadhaar Front
+    # =================================
+
+    nominee_front_key = upload_bank_proof(
+        file_content=nominee_front_content,
+        filename=nominee_front_filename,
+        content_type=nominee_aadhar_front.content_type
+    )
+
+    # =================================
+    # Upload Nominee Aadhaar Back
+    # =================================
+
+    nominee_back_key = upload_bank_proof(
+        file_content=nominee_back_content,
+        filename=nominee_back_filename,
+        content_type=nominee_aadhar_back.content_type
     )
 
     # =================================
@@ -647,7 +734,6 @@ async def update_bank_details(
     user.bank_account = bank_account.strip()
     user.bank_name = bank_name.strip()
     user.ifsc = ifsc
-
     user.bank_proof = proof_key
 
     # =================================
@@ -655,6 +741,7 @@ async def update_bank_details(
     # =================================
 
     user.nominee_name = nominee_name.strip()
+
     user.nominee_relation = (
         nominee_relation.strip()
         if nominee_relation
@@ -678,20 +765,30 @@ async def update_bank_details(
     user.nominee_aadhar = nominee_aadhar.strip()
     user.nominee_mobile = nominee_mobile.strip()
 
-    # --------------------------------
+    # =================================
+    # Save Nominee Aadhaar Documents
+    # =================================
+
+    user.nominee_aadhar_front = nominee_front_key
+    user.nominee_aadhar_back = nominee_back_key
+
+    # =================================
     # Save
-    # --------------------------------
+    # =================================
+
     db.commit()
     db.refresh(user)
 
     return {
         "message": "Bank and nominee details updated successfully",
+
         "bank_details": {
             "bank_account": user.bank_account,
             "bank_name": user.bank_name,
             "ifsc": user.ifsc,
             "bank_proof": user.bank_proof
         },
+
         "nominee_details": {
             "nominee_name": user.nominee_name,
             "nominee_relation": user.nominee_relation,
@@ -699,7 +796,9 @@ async def update_bank_details(
             "nominee_dob": user.nominee_dob,
             "nominee_address": user.nominee_address,
             "nominee_aadhar": user.nominee_aadhar,
-            "nominee_mobile": user.nominee_mobile
+            "nominee_mobile": user.nominee_mobile,
+            "nominee_aadhar_front": user.nominee_aadhar_front,
+            "nominee_aadhar_back": user.nominee_aadhar_back
         }
     }
 
