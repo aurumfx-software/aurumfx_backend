@@ -58,3 +58,13 @@ def upload_bank_proof(
     )
 
     return key
+
+def get_spaces_url(object_key: str | None):
+    if not object_key:
+        return None
+
+    # If already a full URL, don't modify it
+    if object_key.startswith("http://") or object_key.startswith("https://"):
+        return object_key
+
+    return f"{SPACES_ENDPOINT.rstrip('/')}/{object_key.lstrip('/')}"

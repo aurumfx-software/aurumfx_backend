@@ -11,7 +11,11 @@ from app.core.security import get_current_user
 from app.services.binary_tree import  find_placement_parent
 from app.services.activity_service import get_activity_history
 from app.services.spaces_service import upload_profile_image, upload_bank_proof
-
+from app.services.spaces_service import (
+    upload_profile_image,
+    upload_bank_proof,
+    get_spaces_url
+)
 
 
 
@@ -24,6 +28,7 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
+
 # ----------------------------
 # Check entroller
 # ----------------------------
@@ -807,9 +812,6 @@ def get_bank_details(
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # --------------------------------
-    # Find logged-in user
-    # --------------------------------
     user = (
         db.query(User)
         .filter(User.user_id == current_user)
@@ -829,7 +831,11 @@ def get_bank_details(
             "bank_account": user.bank_account,
             "bank_name": user.bank_name,
             "ifsc": user.ifsc,
-            "bank_proof": user.bank_proof,
+
+            "bank_proof": get_spaces_url(
+                user.bank_proof
+            ),
+
             "bank_status": user.bank_status
         },
 
@@ -841,8 +847,14 @@ def get_bank_details(
             "nominee_address": user.nominee_address,
             "nominee_aadhar": user.nominee_aadhar,
             "nominee_mobile": user.nominee_mobile,
-            "nominee_aadhar_front": user.nominee_aadhar_front,
-            "nominee_aadhar_back": user.nominee_aadhar_back
+
+            "nominee_aadhar_front": get_spaces_url(
+                user.nominee_aadhar_front
+            ),
+
+            "nominee_aadhar_back": get_spaces_url(
+                user.nominee_aadhar_back
+            )
         }
     }
 
