@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from datetime import date
 from typing import Optional, List
 from app.enums import GenderEnum, ClubEnum
@@ -609,3 +609,20 @@ class AdminEnrollerResponse(BaseModel):
 class AdminEnrollerListResponse(BaseModel):
     total: int
     enrollers: list[AdminEnrollerResponse]
+
+
+class BankStatusUpdateRequest(BaseModel):
+    status: str
+    rejection_reason: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value):
+        value = value.upper()
+
+        if value not in ["APPROVED", "REJECTED"]:
+            raise ValueError(
+                "Status must be APPROVED or REJECTED"
+            )
+
+        return value

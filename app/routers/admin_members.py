@@ -1,9 +1,8 @@
 from datetime import date, timedelta
-
-from fastapi import APIRouter, Depends, Query
+from app.utils.jwt import create_access_token
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
 from app.database import get_db
 from app.dependencies import get_current_admin
 from app.models import User, RankSetting
@@ -100,3 +99,36 @@ def get_members(
         }
         for user in users
     ]
+
+@router.post("/members/{user_id}/impersonate")
+def impersonate_user(
+    user_id: str,
+    current_admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    user = (
+        db.query(User)
+        .filter(User.user_id == user_id)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Create temporary token
+    token = create_access_token(
+        data={
+            "sub": user.user_id,
+            "role": "USER",
+            "impersonated_by": current_admin.user_id,
+        }
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": user.user_id,
+    }

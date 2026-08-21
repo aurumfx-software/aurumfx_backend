@@ -33,6 +33,10 @@ class User(Base):
             nullable=False,
             default="PENDING"
         )
+    bank_rejection_reason = Column(
+    String,
+    nullable=True
+)
 
     #image
     profile_image = Column(String, nullable=True)

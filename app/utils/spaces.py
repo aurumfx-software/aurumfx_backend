@@ -90,3 +90,30 @@ def generate_support_ticket_url(
         raise Exception(
             f"Failed to generate support ticket URL: {str(e)}"
         )
+
+# ============================================================
+# GENERATE PRESIGNED URL FOR ANY FILE
+# ============================================================
+
+def generate_presigned_url(
+    object_key: str | None,
+    expires_in: int = 3600,
+) -> str | None:
+
+    if not object_key:
+        return None
+
+    try:
+        return s3_client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": SPACES_BUCKET,
+                "Key": object_key,
+            },
+            ExpiresIn=expires_in,
+        )
+
+    except (BotoCoreError, ClientError) as e:
+        raise Exception(
+            f"Failed to generate presigned URL: {str(e)}"
+        )
