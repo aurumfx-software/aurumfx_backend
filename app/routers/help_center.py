@@ -1,5 +1,3 @@
-from app.utils.spaces import upload_support_ticket_file
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -15,8 +13,23 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 
-from app.models import User, SupportTicket, SupportTicketMessage
-from app.schemas import SupportTicketResponse, SupportTicketListItem, SupportTicketListResponse, SupportTicketMessageResponse, SupportTicketDetailsResponse
+from app.models import (
+    SupportTicket,
+    SupportTicketMessage,
+)
+
+from app.schemas import (
+    SupportTicketResponse,
+    SupportTicketListItem,
+    SupportTicketListResponse,
+    SupportTicketMessageResponse,
+    SupportTicketDetailsResponse,
+)
+
+from app.utils.spaces import (
+    upload_support_ticket_file,
+    generate_support_ticket_url,
+)
 
 
 router = APIRouter(
@@ -40,6 +53,7 @@ async def create_support_ticket(
     attachment: UploadFile | None = File(None),
 
     db: Session = Depends(get_db),
+
     current_user: str = Depends(get_current_user),
 ):
 
@@ -77,19 +91,23 @@ async def create_support_ticket(
         .first()
     )
 
-    next_id = 1 if not last_ticket else last_ticket.id + 1
+    next_id = (
+        1
+        if not last_ticket
+        else last_ticket.id + 1
+    )
 
     ticket_number = f"TKT-{next_id:06d}"
 
     # --------------------------------------------------------
-    # Upload optional attachment to DigitalOcean Spaces
+    # Upload attachment
     # --------------------------------------------------------
 
-    attachment_url = None
+    attachment_key = None
 
     if attachment and attachment.filename:
 
-        attachment_url = upload_support_ticket_file(
+        attachment_key = upload_support_ticket_file(
             file=attachment,
             user_id=current_user,
         )
@@ -103,13 +121,21 @@ async def create_support_ticket(
         user_id=current_user,
         subject=subject,
         message=message,
-        attachment=attachment_url,
+        attachment=attachment_key,
         status="OPEN",
     )
 
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
+
+    # --------------------------------------------------------
+    # Generate display URL
+    # --------------------------------------------------------
+
+    attachment_url = generate_support_ticket_url(
+        ticket.attachment
+    )
 
     # --------------------------------------------------------
     # Response
@@ -122,6 +148,7 @@ async def create_support_ticket(
         status=ticket.status,
     )
 
+
 # ============================================================
 # GET MY SUPPORT TICKETS
 # ============================================================
@@ -132,11 +159,9 @@ async def create_support_ticket(
 )
 def get_my_support_tickets(
     db: Session = Depends(get_db),
+
     current_user: str = Depends(get_current_user),
 ):
-    """
-    Get all support tickets created by the logged-in user.
-    """
 
     tickets = (
         db.query(SupportTicket)
@@ -152,13 +177,22 @@ def get_my_support_tickets(
     ticket_list = []
 
     for ticket in tickets:
+
+        attachment_url = (
+            generate_support_ticket_url(
+                ticket.attachment
+            )
+            if ticket.attachment
+            else None
+        )
+
         ticket_list.append(
             SupportTicketListItem(
                 ticket_id=ticket.id,
                 ticket_number=ticket.ticket_number,
                 subject=ticket.subject,
                 message=ticket.message,
-                attachment=ticket.attachment,
+                attachment=attachment_url,
                 status=ticket.status,
                 created_at=ticket.created_at,
                 updated_at=ticket.updated_at,
@@ -168,6 +202,7 @@ def get_my_support_tickets(
     return SupportTicketListResponse(
         tickets=ticket_list
     )
+
 
 # ============================================================
 # USER REPLY TO TICKET
@@ -187,9 +222,6 @@ async def user_reply_to_ticket(
 
     current_user: str = Depends(get_current_user),
 ):
-    """
-    User replies to their own support ticket.
-    """
 
     # --------------------------------------------------------
     # Validate message
@@ -223,7 +255,7 @@ async def user_reply_to_ticket(
         )
 
     # --------------------------------------------------------
-    # Check ticket status
+    # Check status
     # --------------------------------------------------------
 
     if ticket.status == "CLOSED":
@@ -233,14 +265,14 @@ async def user_reply_to_ticket(
         )
 
     # --------------------------------------------------------
-    # Upload optional attachment
+    # Upload attachment
     # --------------------------------------------------------
 
-    attachment_url = None
+    attachment_key = None
 
     if attachment and attachment.filename:
 
-        attachment_url = upload_support_ticket_file(
+        attachment_key = upload_support_ticket_file(
             file=attachment,
             user_id=current_user,
         )
@@ -253,28 +285,41 @@ async def user_reply_to_ticket(
         ticket_id=ticket.id,
         user_id=current_user,
         message=message,
-        attachment=attachment_url,
+        attachment=attachment_key,
         sender_type="USER",
     )
 
     db.add(reply)
 
     # --------------------------------------------------------
-    # Update ticket status
+    # Update ticket
     # --------------------------------------------------------
 
     ticket.status = "OPEN"
 
     db.commit()
-
     db.refresh(reply)
+
+    # --------------------------------------------------------
+    # Generate attachment URL
+    # --------------------------------------------------------
+
+    attachment_url = (
+        generate_support_ticket_url(
+            reply.attachment
+        )
+        if reply.attachment
+        else None
+    )
 
     return {
         "message": "Reply submitted successfully",
         "reply_id": reply.id,
         "ticket_id": ticket.id,
         "status": ticket.status,
+        "attachment": attachment_url,
     }
+
 
 # ============================================================
 # GET USER TICKET DETAILS
@@ -286,9 +331,16 @@ async def user_reply_to_ticket(
 )
 def get_user_ticket_details(
     ticket_id: int,
+
     db: Session = Depends(get_db),
+
     current_user: str = Depends(get_current_user),
 ):
+
+    # --------------------------------------------------------
+    # Get ticket
+    # --------------------------------------------------------
+
     ticket = (
         db.query(SupportTicket)
         .filter(
@@ -304,6 +356,10 @@ def get_user_ticket_details(
             detail="Ticket not found",
         )
 
+    # --------------------------------------------------------
+    # Get replies
+    # --------------------------------------------------------
+
     replies = (
         db.query(SupportTicketMessage)
         .filter(
@@ -315,17 +371,48 @@ def get_user_ticket_details(
         .all()
     )
 
-    reply_list = [
-        SupportTicketMessageResponse(
-            id=reply.id,
-            user_id=reply.user_id,
-            message=reply.message,
-            attachment=reply.attachment,
-            sender_type=reply.sender_type,
-            created_at=reply.created_at,
+    # --------------------------------------------------------
+    # Ticket attachment URL
+    # --------------------------------------------------------
+
+    ticket_attachment_url = (
+        generate_support_ticket_url(
+            ticket.attachment
         )
-        for reply in replies
-    ]
+        if ticket.attachment
+        else None
+    )
+
+    # --------------------------------------------------------
+    # Reply list
+    # --------------------------------------------------------
+
+    reply_list = []
+
+    for reply in replies:
+
+        reply_attachment_url = (
+            generate_support_ticket_url(
+                reply.attachment
+            )
+            if reply.attachment
+            else None
+        )
+
+        reply_list.append(
+            SupportTicketMessageResponse(
+                id=reply.id,
+                user_id=reply.user_id,
+                message=reply.message,
+                attachment=reply_attachment_url,
+                sender_type=reply.sender_type,
+                created_at=reply.created_at,
+            )
+        )
+
+    # --------------------------------------------------------
+    # Response
+    # --------------------------------------------------------
 
     return SupportTicketDetailsResponse(
         ticket_id=ticket.id,
@@ -333,7 +420,7 @@ def get_user_ticket_details(
         user_id=ticket.user_id,
         subject=ticket.subject,
         message=ticket.message,
-        attachment=ticket.attachment,
+        attachment=ticket_attachment_url,
         status=ticket.status,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,

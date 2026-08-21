@@ -1,12 +1,26 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException,UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import SupportTicket,SupportTicketMessage
 
-from app.utils.spaces import upload_support_ticket_file
+from app.models import (
+    SupportTicket,
+    SupportTicketMessage,
+)
+
+from app.utils.spaces import (
+    upload_support_ticket_file,
+    generate_support_ticket_url,
+)
 
 from app.schemas import (
     AdminSupportTicketListItem,
@@ -34,9 +48,6 @@ def get_all_support_tickets(
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
 ):
-    """
-    Get all support tickets for admin panel.
-    """
 
     tickets = (
         db.query(SupportTicket)
@@ -50,6 +61,15 @@ def get_all_support_tickets(
 
     for ticket in tickets:
 
+        # Generate temporary URL for attachment
+        attachment_url = (
+            generate_support_ticket_url(
+                ticket.attachment
+            )
+            if ticket.attachment
+            else None
+        )
+
         ticket_list.append(
             AdminSupportTicketListItem(
                 ticket_id=ticket.id,
@@ -57,7 +77,11 @@ def get_all_support_tickets(
                 user_id=ticket.user_id,
                 subject=ticket.subject,
                 message=ticket.message,
-                attachment=ticket.attachment,
+
+                # IMPORTANT
+                # Return presigned URL
+                attachment=attachment_url,
+
                 status=ticket.status,
                 created_at=ticket.created_at,
                 updated_at=ticket.updated_at,
@@ -67,6 +91,7 @@ def get_all_support_tickets(
     return AdminSupportTicketListResponse(
         tickets=ticket_list
     )
+
 
 # ============================================================
 # ADMIN REPLY TO TICKET
@@ -86,9 +111,6 @@ async def admin_reply_to_ticket(
 
     current_user: str = Depends(get_current_user),
 ):
-    """
-    Admin replies to a support ticket.
-    """
 
     # --------------------------------------------------------
     # Validate message
@@ -131,14 +153,14 @@ async def admin_reply_to_ticket(
         )
 
     # --------------------------------------------------------
-    # Upload optional attachment
+    # Upload attachment
     # --------------------------------------------------------
 
-    attachment_url = None
+    attachment_key = None
 
     if attachment and attachment.filename:
 
-        attachment_url = upload_support_ticket_file(
+        attachment_key = upload_support_ticket_file(
             file=attachment,
             user_id=current_user,
         )
@@ -151,7 +173,7 @@ async def admin_reply_to_ticket(
         ticket_id=ticket.id,
         user_id=current_user,
         message=message,
-        attachment=attachment_url,
+        attachment=attachment_key,
         sender_type="ADMIN",
     )
 
@@ -167,12 +189,26 @@ async def admin_reply_to_ticket(
 
     db.refresh(reply)
 
+    # --------------------------------------------------------
+    # Generate attachment URL
+    # --------------------------------------------------------
+
+    attachment_url = (
+        generate_support_ticket_url(
+            reply.attachment
+        )
+        if reply.attachment
+        else None
+    )
+
     return {
         "message": "Reply submitted successfully",
         "reply_id": reply.id,
         "ticket_id": ticket.id,
         "status": ticket.status,
+        "attachment": attachment_url,
     }
+
 
 # ============================================================
 # GET ADMIN TICKET DETAILS
@@ -184,9 +220,16 @@ async def admin_reply_to_ticket(
 )
 def get_admin_ticket_details(
     ticket_id: int,
+
     db: Session = Depends(get_db),
+
     current_user: str = Depends(get_current_user),
 ):
+
+    # --------------------------------------------------------
+    # Get ticket
+    # --------------------------------------------------------
+
     ticket = (
         db.query(SupportTicket)
         .filter(
@@ -201,6 +244,10 @@ def get_admin_ticket_details(
             detail="Ticket not found",
         )
 
+    # --------------------------------------------------------
+    # Get replies
+    # --------------------------------------------------------
+
     replies = (
         db.query(SupportTicketMessage)
         .filter(
@@ -212,17 +259,48 @@ def get_admin_ticket_details(
         .all()
     )
 
-    reply_list = [
-        SupportTicketMessageResponse(
-            id=reply.id,
-            user_id=reply.user_id,
-            message=reply.message,
-            attachment=reply.attachment,
-            sender_type=reply.sender_type,
-            created_at=reply.created_at,
+    # --------------------------------------------------------
+    # Ticket attachment URL
+    # --------------------------------------------------------
+
+    ticket_attachment_url = (
+        generate_support_ticket_url(
+            ticket.attachment
         )
-        for reply in replies
-    ]
+        if ticket.attachment
+        else None
+    )
+
+    # --------------------------------------------------------
+    # Reply list
+    # --------------------------------------------------------
+
+    reply_list = []
+
+    for reply in replies:
+
+        reply_attachment_url = (
+            generate_support_ticket_url(
+                reply.attachment
+            )
+            if reply.attachment
+            else None
+        )
+
+        reply_list.append(
+            SupportTicketMessageResponse(
+                id=reply.id,
+                user_id=reply.user_id,
+                message=reply.message,
+                attachment=reply_attachment_url,
+                sender_type=reply.sender_type,
+                created_at=reply.created_at,
+            )
+        )
+
+    # --------------------------------------------------------
+    # Response
+    # --------------------------------------------------------
 
     return SupportTicketDetailsResponse(
         ticket_id=ticket.id,
@@ -230,9 +308,13 @@ def get_admin_ticket_details(
         user_id=ticket.user_id,
         subject=ticket.subject,
         message=ticket.message,
-        attachment=ticket.attachment,
+
+        # IMPORTANT
+        attachment=ticket_attachment_url,
+
         status=ticket.status,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
+
         replies=reply_list,
     )

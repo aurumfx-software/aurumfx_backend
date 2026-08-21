@@ -21,6 +21,10 @@ s3_client = boto3.client(
 )
 
 
+# ============================================================
+# UPLOAD SUPPORT TICKET FILE
+# ============================================================
+
 def upload_support_ticket_file(
     file,
     user_id: str,
@@ -44,8 +48,10 @@ def upload_support_ticket_file(
             SPACES_BUCKET,
             object_key,
             ExtraArgs={
-                "ContentType": file.content_type or "application/octet-stream",
-                "ACL": "public-read",
+                "ContentType": (
+                    file.content_type
+                    or "application/octet-stream"
+                )
             },
         )
 
@@ -54,8 +60,33 @@ def upload_support_ticket_file(
             f"Failed to upload support ticket file: {str(e)}"
         )
 
-    file_url = (
-        f"{SPACES_ENDPOINT}/{object_key}"
-    )
+    # Store this in DB
+    return object_key
 
-    return file_url
+
+# ============================================================
+# GENERATE PRESIGNED URL
+# ============================================================
+
+def generate_support_ticket_url(
+    object_key: str | None,
+    expires_in: int = 3600,
+) -> str | None:
+
+    if not object_key:
+        return None
+
+    try:
+        return s3_client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": SPACES_BUCKET,
+                "Key": object_key,
+            },
+            ExpiresIn=expires_in,
+        )
+
+    except (BotoCoreError, ClientError) as e:
+        raise Exception(
+            f"Failed to generate support ticket URL: {str(e)}"
+        )
