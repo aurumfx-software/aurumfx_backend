@@ -593,3 +593,19 @@ class SupportTicketDetailsResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     replies: list[SupportTicketMessageResponse]
+
+class AdminEnrollerResponse(BaseModel):
+    user_id: str
+    fullname: str
+    date_of_joining: date | None = None
+    rank: str | None = None
+    total_investment_amount: float
+    total_lots: int
+
+    enroller_id: str | None = None
+    enroller_name: str | None = None
+
+
+class AdminEnrollerListResponse(BaseModel):
+    total: int
+    enrollers: list[AdminEnrollerResponse]

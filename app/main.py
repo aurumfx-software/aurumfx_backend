@@ -12,7 +12,6 @@ from app.routers import admin_wallet
 from app.routers import lot_setting
 # from app.routers import admin_binary_tree
 # from app.routers import binary_income
-from app.routers import genealogy
 from app.routers import level_commission
 from app.routers import admin_level_commission
 from app.routers import admin_dashboard
@@ -21,7 +20,9 @@ from app.routers import  admin_rank
 from app.routers import admin_fee
 from app.routers import admin_referral_commission_settings
 from app.routers.admin_payout import router as admin_payout_router
+from app.routers.admin_enrollers import router as admin_enrollers_router
 from app.routers.enroller import router as enroller_router
+from app.routers import genealogy
 from app.routers.user_genealogy import (router as user_genealogy_router)
 from app.routers import user_rank
 from app.routers import user_kyc
@@ -80,7 +81,6 @@ app.include_router(admin_wallet.router)
 app.include_router(lot_setting.router)
 # app.include_router(admin_binary_tree.router)
 # app.include_router(binary_income.router)
-app.include_router(genealogy.router)
 app.include_router(level_commission.router)
 app.include_router(admin_level_commission.router)
 app.include_router(admin_rank.router)
@@ -89,7 +89,9 @@ app.include_router(dashboard.router)
 app.include_router(admin_fee.router)
 app.include_router(admin_referral_commission_settings.router)
 app.include_router(admin_payout_router)
+app.include_router(admin_enrollers_router)
 app.include_router(enroller_router)
+app.include_router(genealogy.router)
 app.include_router(user_genealogy_router)
 app.include_router(user_rank.router)
 app.include_router(user_kyc.router)
