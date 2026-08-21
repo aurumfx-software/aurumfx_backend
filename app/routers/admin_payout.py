@@ -1,12 +1,15 @@
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_admin
+from datetime import date
+
+
 
 from app.models import (
     User,
@@ -1098,3 +1101,270 @@ def pay_user(
             status_code=500,
             detail=f"Payout failed: {str(e)}"
         )
+
+
+@router.get("/paid")
+def get_paid_payouts(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    payouts = (
+        db.query(PayoutHistory)
+        .join(User, PayoutHistory.user_id == User.id)
+        .filter(
+            PayoutHistory.status == "PAID"
+        )
+        .order_by(
+            PayoutHistory.paid_at.desc()
+        )
+        .all()
+    )
+
+    result = []
+
+    for payout in payouts:
+
+        user = payout.user
+
+        result.append({
+
+            "payout_history_id": payout.id,
+
+            "user_id": user.id,
+
+            "user_code": user.user_id,
+
+            "user_name": (
+                f"{user.first_name or ''} "
+                f"{user.last_name or ''}"
+            ).strip(),
+
+            # ----------------------------------------------
+            # Income
+            # ----------------------------------------------
+
+            "referral_income": float(
+                payout.referral_income or 0
+            ),
+
+            "level_income": float(
+                payout.level_income or 0
+            ),
+
+            "rank_income": float(
+                payout.rank_income or 0
+            ),
+
+            "total_income": float(
+                payout.total_income or 0
+            ),
+
+            # ----------------------------------------------
+            # Admin Fee
+            # ----------------------------------------------
+
+            "admin_fee_percentage": float(
+                payout.admin_fee_percentage or 0
+            ),
+
+            "admin_fee": float(
+                payout.admin_fee or 0
+            ),
+
+            # ----------------------------------------------
+            # Net Payable
+            # ----------------------------------------------
+
+            "net_payable": float(
+                payout.net_payable or 0
+            ),
+
+            # ----------------------------------------------
+            # Payout
+            # ----------------------------------------------
+
+            "payout_method": payout.payout_method,
+
+            "payout_information": (
+                payout.payout_information
+            ),
+
+            "status": payout.status,
+
+            "paid_at": payout.paid_at,
+
+            "created_at": payout.created_at,
+        })
+
+    return {
+        "total": len(result),
+        "items": result
+    }
+
+
+# ...
+
+@router.get("/history")
+def get_payout_history(
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    status: str | None = Query(None),
+    user_id: int | None = Query(None),
+
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    query = (
+        db.query(PayoutHistory)
+        .join(
+            User,
+            PayoutHistory.user_id == User.id
+        )
+    )
+
+    # ========================================================
+    # USER ID FILTER
+    # ========================================================
+
+    if user_id is not None:
+        query = query.filter(
+            PayoutHistory.user_id == user_id
+        )
+
+    # ========================================================
+    # STATUS FILTER
+    # ========================================================
+
+    if status:
+        query = query.filter(
+            PayoutHistory.status == status.upper()
+        )
+
+    # ========================================================
+    # START DATE FILTER
+    # ========================================================
+
+    if start_date:
+        query = query.filter(
+            PayoutHistory.paid_at >= start_date
+        )
+
+    # ========================================================
+    # END DATE FILTER
+    # ========================================================
+
+    if end_date:
+        query = query.filter(
+            PayoutHistory.paid_at < (
+                datetime.combine(
+                    end_date,
+                    datetime.max.time()
+                )
+            )
+        )
+
+    # ========================================================
+    # ORDER
+    # ========================================================
+
+    payouts = (
+        query
+        .order_by(
+            PayoutHistory.paid_at.desc()
+        )
+        .all()
+    )
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
+
+    result = []
+
+    for payout in payouts:
+
+        user = (
+            db.query(User)
+            .filter(
+                User.id == payout.user_id
+            )
+            .first()
+        )
+
+        if not user:
+            continue
+
+        result.append({
+
+            "payout_history_id": payout.id,
+
+            "user_id": user.id,
+
+            "user_code": user.user_id,
+
+            "user_name": (
+                f"{user.first_name or ''} "
+                f"{user.last_name or ''}"
+            ).strip(),
+
+            # --------------------------------------------
+            # Income
+            # --------------------------------------------
+
+            "referral_income": float(
+                payout.referral_income or 0
+            ),
+
+            "level_income": float(
+                payout.level_income or 0
+            ),
+
+            "rank_income": float(
+                payout.rank_income or 0
+            ),
+
+            "total_income": float(
+                payout.total_income or 0
+            ),
+
+            # --------------------------------------------
+            # Admin Fee
+            # --------------------------------------------
+
+            "admin_fee_percentage": float(
+                payout.admin_fee_percentage or 0
+            ),
+
+            "admin_fee": float(
+                payout.admin_fee or 0
+            ),
+
+            # --------------------------------------------
+            # Net Payable
+            # --------------------------------------------
+
+            "net_payable": float(
+                payout.net_payable or 0
+            ),
+
+            # --------------------------------------------
+            # Payout
+            # --------------------------------------------
+
+            "payout_method": payout.payout_method,
+
+            "payout_information": (
+                payout.payout_information
+            ),
+
+            "status": payout.status,
+
+            "paid_at": payout.paid_at,
+
+            "created_at": payout.created_at,
+        })
+
+    return {
+        "total": len(result),
+        "items": result
+    }

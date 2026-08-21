@@ -1,247 +1,307 @@
-from datetime import date
-
-from fastapi import APIRouter, Depends, HTTPException
-
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import date
+
+
 
 from app.database import get_db
-from app.models import User, ReferralCommission
+from app.models import (
+    User,
+    Wallet,
+    ReferralCommission,
+    LevelIncome,
+    LevelCommissionHistory,
+    UserRankHistory,
+    AdminFeeSetting,
+    WalletTransaction,
+    Investment,
+)
 from app.core.security import get_current_user
+
 
 router = APIRouter(
     prefix="/admin/wallet",
     tags=["Admin Wallet"]
 )
 
-def get_admin(
+
+# ============================================================
+# Admin Fee
+# ============================================================
+
+def get_admin_fee_percentage(db: Session) -> float:
+
+    fee_setting = (
+        db.query(AdminFeeSetting)
+        .filter(
+            AdminFeeSetting.status == True
+        )
+        .order_by(
+            AdminFeeSetting.id.desc()
+        )
+        .first()
+    )
+
+    if not fee_setting:
+        return 0.0
+
+    return float(
+        fee_setting.fee_percentage or 0
+    )
+
+
+
+
+
+# ...
+
+
+@router.get("/transactions")
+def get_all_wallet_transactions(
+    start_date: date | None = Query(
+        None,
+        description="Start date"
+    ),
+    end_date: date | None = Query(
+        None,
+        description="End date"
+    ),
+    user_id: str | None = Query(
+        None,
+        description="Filter by user ID"
+    ),
+    transaction_type: str | None = Query(
+        None,
+        description="Filter by transaction type"
+    ),
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
+    # ========================================================
+    # ADMIN
+    # ========================================================
+
     admin = (
         db.query(User)
-        .filter(User.user_id == current_user)
+        .filter(
+            User.user_id == current_user
+        )
         .first()
     )
 
     if not admin:
         raise HTTPException(
             status_code=404,
-            detail="User not found"
+            detail="Admin user not found"
         )
 
-    if admin.role != "ADMIN":
-        raise HTTPException(
-            status_code=403,
-            detail="Only admin can access"
-        )
+    # ========================================================
+    # VALIDATE DATE RANGE
+    # ========================================================
 
-    return admin
+    if start_date and end_date:
 
-@router.get("/summary")
-def wallet_summary(
-    admin=Depends(get_admin),
-    db: Session = Depends(get_db)
-):
-
-    total_admin_fee = (
-        db.query(
-            func.coalesce(
-                func.sum(
-                    ReferralCommission.admin_fee_amount
-                ),
-                0
+        if start_date > end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="start_date cannot be greater than end_date"
             )
-        )
-        .scalar()
-    )
 
-    today_admin_fee = (
+    # ========================================================
+    # BASE QUERY
+    # ========================================================
+
+    query = (
         db.query(
-            func.coalesce(
-                func.sum(
-                    ReferralCommission.admin_fee_amount
-                ),
-                0
-            )
+            WalletTransaction,
+            Wallet,
+            User
         )
-        .filter(
-            func.date(
-                ReferralCommission.created_at
-            ) == date.today()
+        .join(
+            Wallet,
+            WalletTransaction.wallet_id == Wallet.id
         )
-        .scalar()
+        .join(
+            User,
+            Wallet.user_id == User.id
+        )
     )
 
-    total_commissions = (
-        db.query(func.count(ReferralCommission.id))
-        .scalar()
-    )
+    # ========================================================
+    # USER FILTER
+    # ========================================================
 
-    return {
+    if user_id:
 
-        "total_admin_fee": total_admin_fee,
+        query = query.filter(
+            User.user_id == user_id
+        )
 
-        "today_admin_fee": today_admin_fee,
+    # ========================================================
+    # TRANSACTION TYPE FILTER
+    # ========================================================
 
-        "total_referral_commissions": total_commissions
+    if transaction_type:
 
-    }
+        query = query.filter(
+            WalletTransaction.transaction_type ==
+            transaction_type
+        )
 
-@router.get("/history")
-def admin_fee_history(
-    start_date: date | None = None,
-    end_date: date | None = None,
-    db: Session = Depends(get_db),
-    admin=Depends(get_admin)
-):
-
-    query = db.query(ReferralCommission)
+    # ========================================================
+    # START DATE
+    # ========================================================
 
     if start_date:
+
         query = query.filter(
             func.date(
-                ReferralCommission.created_at
+                WalletTransaction.created_at
             ) >= start_date
         )
 
+    # ========================================================
+    # END DATE
+    # ========================================================
+
     if end_date:
+
         query = query.filter(
             func.date(
-                ReferralCommission.created_at
+                WalletTransaction.created_at
             ) <= end_date
         )
 
-    commissions = (
-        query.order_by(
-            ReferralCommission.id.desc()
+    # ========================================================
+    # ORDER
+    # ========================================================
+
+    transactions = (
+        query
+        .order_by(
+            WalletTransaction.id.desc()
         )
         .all()
     )
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
 
     response = []
 
-    for item in commissions:
+    for transaction, wallet, user in transactions:
 
-        investor = (
-            db.query(User)
-            .filter(User.id == item.investor_id)
-            .first()
-        )
+        # ----------------------------------------------------
+        # FROM USER
+        # ----------------------------------------------------
 
-        enroller = (
-            db.query(User)
-            .filter(User.id == item.enroller_id)
-            .first()
-        )
+        from_user = None
+
+        if transaction.investment_id:
+
+            investment = (
+                db.query(Investment)
+                .filter(
+                    Investment.id ==
+                    transaction.investment_id
+                )
+                .first()
+            )
+
+            if investment:
+
+                investor = (
+                    db.query(User)
+                    .filter(
+                        User.id ==
+                        investment.user_id
+                    )
+                    .first()
+                )
+
+                if investor:
+
+                    from_user = {
+                        "user_id":
+                            investor.user_id,
+
+                        "name":
+                            (
+                                f"{investor.first_name or ''} "
+                                f"{investor.last_name or ''}"
+                            ).strip()
+                    }
+
+        # ----------------------------------------------------
+        # PAYMENT TYPE
+        # ----------------------------------------------------
+
+        if transaction.status == "PAID":
+
+            payment_type = "CREDIT"
+
+        elif transaction.status == "PENDING":
+
+            payment_type = "PENDING"
+
+        else:
+
+            payment_type = transaction.status
+
+        # ----------------------------------------------------
+        # USER NAME
+        # ----------------------------------------------------
+
+        user_name = (
+            f"{user.first_name or ''} "
+            f"{user.last_name or ''}"
+        ).strip()
+
+        # ----------------------------------------------------
+        # RESPONSE
+        # ----------------------------------------------------
 
         response.append({
 
-            "id": item.id,
+            "id":
+                transaction.id,
 
-            "investment_id": item.investment_id,
+            "user": {
+                "user_id":
+                    user.user_id,
 
-            "investor": investor.user_id,
+                "name":
+                    user_name
+            },
 
-            "enroller": enroller.user_id,
+            "wallet_id":
+                wallet.id,
 
-            "investment_amount": item.investment_amount,
+            "from_user":
+                from_user,
 
-            "commission_percentage": item.commission_percentage,
+            "investment_id":
+                transaction.investment_id,
 
-            "commission_amount": item.commission_amount,
+            "transaction_type":
+                transaction.transaction_type,
 
-            "admin_fee_percentage": item.admin_fee_percentage,
+            "payment_type":
+                payment_type,
 
-            "admin_fee_amount": item.admin_fee_amount,
+            "amount":
+                float(
+                    transaction.amount or 0
+                ),
 
-            "paid_amount": item.paid_amount,
+            "status":
+                transaction.status,
 
-            "washout_amount": item.washout_amount,
-
-            "date": item.created_at
-
+            "date":
+                transaction.created_at
         })
 
     return response
-
-@router.get("/today")
-def today_admin_fee(
-    admin=Depends(get_admin),
-    db: Session = Depends(get_db)
-):
-
-    commissions = (
-        db.query(ReferralCommission)
-        .filter(
-            func.date(
-                ReferralCommission.created_at
-            ) == date.today()
-        )
-        .all()
-    )
-
-    return commissions
-@router.get("/{id}")
-def admin_fee_details(
-    id: int,
-    admin=Depends(get_admin),
-    db: Session = Depends(get_db)
-):
-
-    commission = (
-        db.query(ReferralCommission)
-        .filter(
-            ReferralCommission.id == id
-        )
-        .first()
-    )
-
-    if not commission:
-        raise HTTPException(
-            status_code=404,
-            detail="Record not found"
-        )
-
-    investor = (
-        db.query(User)
-        .filter(User.id == commission.investor_id)
-        .first()
-    )
-
-    enroller = (
-        db.query(User)
-        .filter(User.id == commission.enroller_id)
-        .first()
-    )
-
-    return {
-
-        "id": commission.id,
-
-        "investment_id": commission.investment_id,
-
-        "investor": investor.user_id,
-
-        "enroller": enroller.user_id,
-
-        "investment_amount": commission.investment_amount,
-
-        "commission_percentage": commission.commission_percentage,
-
-        "commission_amount": commission.commission_amount,
-
-        "admin_fee_percentage": commission.admin_fee_percentage,
-
-        "admin_fee_amount": commission.admin_fee_amount,
-
-        "paid_amount": commission.paid_amount,
-
-        "washout_amount": commission.washout_amount,
-
-        "status": commission.status,
-
-        "created_at": commission.created_at
-
-    }
