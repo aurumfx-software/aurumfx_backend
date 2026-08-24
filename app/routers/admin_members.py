@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_admin
 from app.models import User, RankSetting
+from app.schemas import UserStatusUpdateRequest
+
 
 router = APIRouter(
     prefix="/api/admin/members",
@@ -131,4 +133,87 @@ def impersonate_user(
         "access_token": token,
         "token_type": "bearer",
         "user_id": user.user_id,
+    }
+
+# ==========================================================
+# BLOCK / ACTIVATE USER
+# ==========================================================
+
+@router.patch("/{user_id}/status")
+def update_user_status(
+    user_id: str,
+    data: UserStatusUpdateRequest,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+
+    # ======================================================
+    # FIND USER
+    # ======================================================
+
+    user = (
+        db.query(User)
+        .filter(
+            User.user_id == user_id
+        )
+        .first()
+    )
+
+    if not user:
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    # ======================================================
+    # NORMALIZE STATUS
+    # ======================================================
+
+    status_value = (
+        data.status
+        .strip()
+        .upper()
+    )
+
+    # ======================================================
+    # VALIDATE STATUS
+    # ======================================================
+
+    if status_value not in {
+        "ACTIVE",
+        "BLOCKED",
+    }:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid status. "
+                "Use ACTIVE or BLOCKED."
+            ),
+        )
+
+    # ======================================================
+    # UPDATE
+    # ======================================================
+
+    user.status = status_value
+
+    db.commit()
+    db.refresh(user)
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
+
+    return {
+        "message": (
+            "User activated successfully."
+            if status_value == "ACTIVE"
+            else "User blocked successfully."
+        ),
+
+        "user_id": user.user_id,
+
+        "status": user.status,
     }

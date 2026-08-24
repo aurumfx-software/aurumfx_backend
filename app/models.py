@@ -21,6 +21,7 @@ class User(Base):
     mobile = Column(String, nullable=False)
     gender = Column(String, nullable=True)
     club = Column(String, nullable=True)
+    status = Column(String,nullable=False,default="ACTIVE",server_default="ACTIVE",index=True,)
     #image
     profile_image = Column(String, nullable=True)
     #KYC

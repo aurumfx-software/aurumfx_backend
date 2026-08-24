@@ -260,43 +260,92 @@ def register(
 # Login
 # ----------------------------
 @router.post("/login")
-def user_login(login: LoginUser, request: Request, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.user_id == login.user_id).first()
+def user_login(
+    login: LoginUser,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # ======================================================
+    # FIND USER
+    # ======================================================
+
+    user = (
+        db.query(User)
+        .filter(User.user_id == login.user_id)
+        .first()
+    )
 
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid User ID or Password")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid User ID or Password",
+        )
+
+    # ======================================================
+    # CHECK ROLE
+    # ======================================================
 
     if user.role != "USER":
         raise HTTPException(
             status_code=403,
-            detail="This account is not authorized for user login."
+            detail="This account is not authorized for user login.",
         )
 
+    # ======================================================
+    # CHECK ACCOUNT STATUS
+    # ======================================================
+
+    if user.status == "BLOCKED":
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has been blocked. Please contact support.",
+        )
+
+    # ======================================================
+    # VERIFY PASSWORD
+    # ======================================================
+
     if not pwd_context.verify(login.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid User ID or Password")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid User ID or Password",
+        )
+
+    # ======================================================
+    # CREATE ACCESS TOKEN
+    # ======================================================
 
     token = create_access_token(
         data={
             "sub": user.user_id,
-            "role": user.role
+            "role": user.role,
         }
     )
+
+    # ======================================================
+    # LOGIN ACTIVITY
+    # ======================================================
+
     activity = UserActivityHistory(
-    user_id=user.id,
-    activity_type="LOGIN",
-    ip_address=request.client.host,
-    user_agent=request.headers.get("user-agent"),
-    created_at=datetime.utcnow()
-)
+        user_id=user.id,
+        activity_type="LOGIN",
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent"),
+        created_at=datetime.utcnow(),
+    )
 
     db.add(activity)
     db.commit()
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
 
     return {
         "access_token": token,
         "token_type": "bearer",
         "user_id": user.user_id,
-        "role": user.role
+        "role": user.role,
     }
 
 @router.post("/admin/login")

@@ -354,7 +354,9 @@ class AdminFeeCreate(BaseModel):
         le=100
     )
     status: bool = True
-
+    
+class UserStatusUpdateRequest(BaseModel):
+    status: str = Field(..., min_length=1)
 
 class AdminFeeUpdate(BaseModel):
     # investment_plan_id: int
