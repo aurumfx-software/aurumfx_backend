@@ -167,6 +167,11 @@ class Investment(Base):
         default="PENDING"
     )
 
+    reject_reason = Column(
+    String(500),
+    nullable=True
+    )
+
     investment_date = Column(
         Date,
         nullable=False

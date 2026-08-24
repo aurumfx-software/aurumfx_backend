@@ -515,6 +515,134 @@ def investment_details(
 # --------------------------------------------------
 # Approve / Reject Investment
 # --------------------------------------------------
+# @router.put("/{id}")
+# def approve_reject(
+#     id: int,
+#     data: InvestmentApproval,
+#     admin=Depends(get_admin),
+#     db: Session = Depends(get_db)
+# ):
+
+#     investment = (
+#         db.query(Investment)
+#         .filter(Investment.id == id)
+#         .first()
+#     )
+
+#     if not investment:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Investment not found"
+#         )
+
+#     status = data.approval_status.upper()
+
+#     if status not in ["APPROVED", "REJECTED"]:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Invalid Status"
+#         )
+
+#     if investment.approval_status == "APPROVED":
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Investment already approved"
+#         )
+
+#     investment.approval_status = status
+
+#     if status == "APPROVED":
+#         investment.investment_status = "ACTIVE"
+#     else:
+#         investment.investment_status = "REJECTED"
+
+#     db.commit()
+#     db.refresh(investment)
+
+#     # Create sponsor commission only when approved
+#     if status == "APPROVED":
+#         print("STEP 1: Investment Approved")
+
+#         plan = (
+#             db.query(InvestmentPlan)
+#             .filter(
+#                 InvestmentPlan.id == investment.investment_plan_id
+#             )
+#             .first()
+#         )
+#         print("STEP 2: Calling Referral")
+#         existing_commission = (
+#             db.query(ReferralCommission)
+#             .filter(
+#                 ReferralCommission.investment_id == investment.id
+#             )
+#             .first()
+#         )
+
+#         if not existing_commission:
+#             create_referral_commission(
+#                 db=db,
+#                 investment=investment,
+#                 plan=plan
+#             )
+#            # print("STEP 3: Referral Completed")
+
+            
+
+#         #--------------------------------------------------------------------------------------------------------
+#         #level commission
+#         #--------------------------------------------------------------------------------------------------------
+#         calculate_level_commission(db, investment)
+#         #--------------------------------------------------------------------------------------------------------
+#         #/level commission
+#         #--------------------------------------------------------------------------------------------------------
+#         #--------------------------------------------------------------------------------------------------------
+#         #rank holder commission
+#         #--------------------------------------------------------------------------------------------------------
+#         investor = (
+#         db.query(User)
+#         .filter(User.id == investment.user_id)
+#         .first()
+#         )
+
+#         current = investor
+
+#         while current and current.enroller_id:
+
+#             sponsor = (
+#                 db.query(User)
+#                 .filter(User.user_id == current.enroller_id)
+#                 .first()
+#             )
+
+#             if not sponsor:
+#                 break
+
+#             print("Checking Sponsor :", sponsor.user_id)
+
+#             check_and_assign_rank(db, sponsor)
+
+#             current = sponsor
+#         #--------------------------------------------------------------------------------------------------------
+#         #/Rank holder commission
+#         #--------------------------------------------------------------------------------------------------------
+#         #print("STEP 4: Calling Binary")
+#         #--------------------------------------------------------------------------------------------------------
+#         #binary
+#         #--------------------------------------------------------------------------------------------------------
+#         #propagate_business(
+#         #    db=db,
+#         #    investment=investment
+#         #)
+#         #print("STEP 5: Binary Completed")
+#         #---------------------------------------------------------------------------------------------------------
+#         #/binary--------------------------------------------------------------------------------------------------
+#         #---------------------------------------------------------------------------------------------------------
+
+#     return {
+#         "message": f"Investment {status.lower()} successfully"
+#     }
+
 @router.put("/{id}")
 def approve_reject(
     id: int,
@@ -522,6 +650,9 @@ def approve_reject(
     admin=Depends(get_admin),
     db: Session = Depends(get_db)
 ):
+    # ======================================================
+    # FIND INVESTMENT
+    # ======================================================
 
     investment = (
         db.query(Investment)
@@ -535,13 +666,25 @@ def approve_reject(
             detail="Investment not found"
         )
 
-    status = data.approval_status.upper()
+    # ======================================================
+    # NORMALIZE STATUS
+    # ======================================================
 
-    if status not in ["APPROVED", "REJECTED"]:
+    status = data.approval_status.strip().upper()
+
+    # ======================================================
+    # VALIDATE STATUS
+    # ======================================================
+
+    if status not in {"APPROVED", "REJECTED"}:
         raise HTTPException(
             status_code=400,
-            detail="Invalid Status"
+            detail="Invalid Status. Use APPROVED or REJECTED."
         )
+
+    # ======================================================
+    # PREVENT RE-APPROVAL / RE-REJECTION
+    # ======================================================
 
     if investment.approval_status == "APPROVED":
         raise HTTPException(
@@ -549,19 +692,70 @@ def approve_reject(
             detail="Investment already approved"
         )
 
+    if investment.approval_status == "REJECTED":
+        raise HTTPException(
+            status_code=400,
+            detail="Investment already rejected"
+        )
+
+    # ======================================================
+    # REJECTION REASON
+    # ======================================================
+
+    reject_reason = None
+
+    if status == "REJECTED":
+
+        reject_reason = (
+            data.reject_reason.strip()
+            if data.reject_reason
+            else None
+        )
+
+        if not reject_reason:
+            raise HTTPException(
+                status_code=400,
+                detail="Rejection reason is required"
+            )
+
+        if len(reject_reason) > 500:
+            raise HTTPException(
+                status_code=400,
+                detail="Rejection reason must not exceed 500 characters"
+            )
+
+    # ======================================================
+    # UPDATE STATUS
+    # ======================================================
+
     investment.approval_status = status
 
     if status == "APPROVED":
+
         investment.investment_status = "ACTIVE"
+
+        # No rejection reason for approved investment
+        investment.reject_reason = None
+
     else:
+
         investment.investment_status = "REJECTED"
+        investment.reject_reason = reject_reason
 
     db.commit()
     db.refresh(investment)
 
-    # Create sponsor commission only when approved
+    # ======================================================
+    # APPROVED
+    # ======================================================
+
     if status == "APPROVED":
+
         print("STEP 1: Investment Approved")
+
+        # --------------------------------------------------
+        # Investment Plan
+        # --------------------------------------------------
 
         plan = (
             db.query(InvestmentPlan)
@@ -570,7 +764,19 @@ def approve_reject(
             )
             .first()
         )
+
+        if not plan:
+            raise HTTPException(
+                status_code=404,
+                detail="Investment plan not found"
+            )
+
+        # --------------------------------------------------
+        # Referral Commission
+        # --------------------------------------------------
+
         print("STEP 2: Calling Referral")
+
         existing_commission = (
             db.query(ReferralCommission)
             .filter(
@@ -580,29 +786,32 @@ def approve_reject(
         )
 
         if not existing_commission:
+
             create_referral_commission(
                 db=db,
                 investment=investment,
                 plan=plan
             )
-           # print("STEP 3: Referral Completed")
 
-            
+        # --------------------------------------------------
+        # Level Commission
+        # --------------------------------------------------
 
-        #--------------------------------------------------------------------------------------------------------
-        #level commission
-        #--------------------------------------------------------------------------------------------------------
-        calculate_level_commission(db, investment)
-        #--------------------------------------------------------------------------------------------------------
-        #/level commission
-        #--------------------------------------------------------------------------------------------------------
-        #--------------------------------------------------------------------------------------------------------
-        #rank holder commission
-        #--------------------------------------------------------------------------------------------------------
+        calculate_level_commission(
+            db,
+            investment
+        )
+
+        # --------------------------------------------------
+        # Rank Holder Commission
+        # --------------------------------------------------
+
         investor = (
-        db.query(User)
-        .filter(User.id == investment.user_id)
-        .first()
+            db.query(User)
+            .filter(
+                User.id == investment.user_id
+            )
+            .first()
         )
 
         current = investor
@@ -611,34 +820,39 @@ def approve_reject(
 
             sponsor = (
                 db.query(User)
-                .filter(User.user_id == current.enroller_id)
+                .filter(
+                    User.user_id == current.enroller_id
+                )
                 .first()
             )
 
             if not sponsor:
                 break
 
-            print("Checking Sponsor :", sponsor.user_id)
+            print(
+                "Checking Sponsor :",
+                sponsor.user_id
+            )
 
-            check_and_assign_rank(db, sponsor)
+            check_and_assign_rank(
+                db,
+                sponsor
+            )
 
             current = sponsor
-        #--------------------------------------------------------------------------------------------------------
-        #/Rank holder commission
-        #--------------------------------------------------------------------------------------------------------
-        #print("STEP 4: Calling Binary")
-        #--------------------------------------------------------------------------------------------------------
-        #binary
-        #--------------------------------------------------------------------------------------------------------
-        #propagate_business(
-        #    db=db,
-        #    investment=investment
-        #)
-        #print("STEP 5: Binary Completed")
-        #---------------------------------------------------------------------------------------------------------
-        #/binary--------------------------------------------------------------------------------------------------
-        #---------------------------------------------------------------------------------------------------------
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
 
     return {
-        "message": f"Investment {status.lower()} successfully"
+        "message": (
+            "Investment approved successfully"
+            if status == "APPROVED"
+            else "Investment rejected successfully"
+        ),
+        "investment_id": investment.investment_id,
+        "approval_status": investment.approval_status,
+        "investment_status": investment.investment_status,
+        "reject_reason": investment.reject_reason
     }

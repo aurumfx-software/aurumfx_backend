@@ -131,6 +131,7 @@ class InvestmentList(BaseModel):
 
 class InvestmentApproval(BaseModel):
     approval_status: str
+    reject_reason: str | None = None
 
 class AdminInvestmentResponse(BaseModel):
     id: int

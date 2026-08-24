@@ -47,7 +47,31 @@ async def create_investment(
             status_code=404,
             detail="User not found"
         )
+    # --------------------------------------------------
+    # Check Bank Transaction ID
+    # --------------------------------------------------
 
+    bank_transaction_id = bank_transaction_id.strip()
+
+    if not bank_transaction_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Bank transaction ID is required."
+        )
+
+    existing_transaction = (
+        db.query(Investment)
+        .filter(
+            Investment.bank_transaction_id == bank_transaction_id
+        )
+        .first()
+    )
+
+    if existing_transaction:
+        raise HTTPException(
+            status_code=400,
+            detail="This bank transaction ID has already been used."
+        )
     # --------------------------------------------------
     # Investment Plan
     # --------------------------------------------------
