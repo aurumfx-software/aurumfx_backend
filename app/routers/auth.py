@@ -11,6 +11,7 @@ from app.core.security import get_current_user
 from app.services.binary_tree import  find_placement_parent
 from app.services.activity_service import get_activity_history
 from app.services.spaces_service import upload_profile_image, upload_bank_proof, get_presigned_url
+from app.core.security import verify_password, get_password_hash
 
 router = APIRouter(
     prefix="/auth",
@@ -1103,4 +1104,57 @@ def get_profile_image(
     return {
         "user_id": user.user_id,
         "profile_image": user.profile_image
+    }
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePassword,
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user),
+):
+    # Get logged-in user
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user_id)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Verify current password
+    if not verify_password(
+        data.current_password,
+        user.password,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    # Check new password confirmation
+    if data.new_password != data.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password and confirm password do not match",
+        )
+
+    # Prevent same password
+    if data.current_password == data.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from current password",
+        )
+
+    # Hash and update
+    user.password = get_password_hash(data.new_password)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Password changed successfully",
     }
