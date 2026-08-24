@@ -15,6 +15,168 @@ router = APIRouter(
 
 
 # ==========================================================
+# GET ALL USERS KYC
+# ==========================================================
+
+# ==========================================================
+# GET ALL USERS KYC
+# ==========================================================
+
+@router.get("/kyc")
+def get_all_users_kyc(
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+
+    # ======================================================
+    # GET ALL USERS WITH KYC
+    # ======================================================
+
+    users = (
+        db.query(User)
+        .join(
+            UserKYC,
+            UserKYC.user_id == User.id
+        )
+        .order_by(
+            User.created_at.desc()
+        )
+        .all()
+    )
+
+    response = []
+
+    # ======================================================
+    # LOOP USERS
+    # ======================================================
+
+    for user in users:
+
+        kyc = (
+            db.query(UserKYC)
+            .filter(
+                UserKYC.user_id == user.id
+            )
+            .first()
+        )
+
+        if not kyc:
+            continue
+
+        # ==================================================
+        # AADHAAR FRONT URL
+        # ==================================================
+
+        aadhar_front_url = None
+
+        if kyc.aadhar_front:
+
+            try:
+
+                aadhar_front_url = generate_presigned_url(
+                    kyc.aadhar_front,
+                    expires_in=300,
+                )
+
+            except Exception:
+
+                aadhar_front_url = None
+
+        # ==================================================
+        # AADHAAR BACK URL
+        # ==================================================
+
+        aadhar_back_url = None
+
+        if kyc.aadhar_back:
+
+            try:
+
+                aadhar_back_url = generate_presigned_url(
+                    kyc.aadhar_back,
+                    expires_in=300,
+                )
+
+            except Exception:
+
+                aadhar_back_url = None
+
+        # ==================================================
+        # PAN IMAGE URL
+        # ==================================================
+
+        pan_image_url = None
+
+        if kyc.pan_image:
+
+            try:
+
+                pan_image_url = generate_presigned_url(
+                    kyc.pan_image,
+                    expires_in=300,
+                )
+
+            except Exception:
+
+                pan_image_url = None
+
+        # ==================================================
+        # RESPONSE
+        # ==================================================
+
+        response.append(
+            {
+                "user_id": user.user_id,
+
+                "fullname": (
+                    f"{user.first_name} "
+                    f"{user.last_name or ''}"
+                ).strip(),
+
+                # ------------------------------------------
+                # KYC
+                # ------------------------------------------
+
+                "kyc": {
+                    "id": kyc.id,
+
+                    "aadhar_no": kyc.aadhar_no,
+
+                    "pan_no": kyc.pan_no,
+
+                    "aadhar_front": (
+                        aadhar_front_url
+                    ),
+
+                    "aadhar_back": (
+                        aadhar_back_url
+                    ),
+
+                    "pan_image": (
+                        pan_image_url
+                    ),
+
+                    "status": kyc.status,
+
+                    "rejection_reason": (
+                        kyc.rejection_reason
+                    ),
+
+                    "uploaded_at": (
+                        kyc.uploaded_at
+                    ),
+
+                    "updated_at": (
+                        kyc.updated_at
+                    ),
+
+                    "expires_in": 300,
+                }
+            }
+        )
+
+    return response
+# ==========================================================
 # GET USER KYC
 # ==========================================================
 
