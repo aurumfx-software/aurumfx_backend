@@ -11,52 +11,22 @@ class User(Base):
     user_id = Column(String, unique=True, index=True)
     email = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=True)
     password = Column(String, nullable=False)
     enroller_id = Column(String, nullable=True)
     date_of_birth = Column(Date, nullable=False)
     country = Column(String, nullable=False)
-    aadhar_no = Column(String, unique=True, nullable=False)
     city = Column(String, nullable=True)
     zip_code = Column(String, nullable=True)
     mobile = Column(String, nullable=False)
-    pan = Column(String, nullable=True)
     gender = Column(String, nullable=True)
     club = Column(String, nullable=True)
-     # Bank Details
-    bank_account = Column(String, nullable=True)
-    bank_name = Column(String, nullable=True)
-    ifsc = Column(String, nullable=True)
-    bank_proof = Column(String, nullable=True)
-    bank_status = Column(
-            String,
-            nullable=False,
-            default="PENDING"
-        )
-    bank_rejection_reason = Column(
-    String,
-    nullable=True
-)
-
     #image
     profile_image = Column(String, nullable=True)
-    
     #KYC
     kyc_documents = relationship("UserKYC",back_populates="user",cascade="all, delete-orphan")
-
-    # Nominee Details
-    nominee_name = Column(String, nullable=True)
-    nominee_relation = Column(String, nullable=True)
-    nominee_gender = Column(String, nullable=True)
-    nominee_dob = Column(Date, nullable=True)
-    nominee_address = Column(String, nullable=True)
-    nominee_aadhar = Column(String, nullable=True)
-    nominee_mobile = Column(String, nullable=True)
-
-    # Nominee Aadhaar Documents
-    nominee_aadhar_front = Column(String, nullable=True)
-    nominee_aadhar_back = Column(String, nullable=True)
-
+    #bank
+    bank_details = relationship("UserBankDetails",back_populates="user",uselist=False,cascade="all, delete-orphan")
     placement_parent = Column(String, nullable=True)
     role = Column(String, default="USER")
     current_rank_id = Column(Integer,ForeignKey("rank_settings.id"),nullable=True)
@@ -1110,6 +1080,80 @@ class PayoutHistory(Base):
         "User",
         foreign_keys=[user_id]
     )
+#-----------------------------------------------------------
+# User bank
+#-----------------------------------------------------------
+
+class UserBankDetails(Base):
+    __tablename__ = "user_bank_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True
+    )
+
+    # -------------------------
+    # Bank Details
+    # -------------------------
+    bank_account = Column(String, nullable=True)
+    bank_name = Column(String, nullable=True)
+    ifsc = Column(String, nullable=True)
+    bank_proof = Column(String, nullable=True)
+
+    status = Column(
+        String,
+        nullable=False,
+        default="PENDING"
+    )
+
+    rejection_reason = Column(
+        String,
+        nullable=True
+    )
+
+    # -------------------------
+    # Nominee Details
+    # -------------------------
+    nominee_name = Column(String, nullable=True)
+    nominee_relation = Column(String, nullable=True)
+    nominee_gender = Column(String, nullable=True)
+    nominee_dob = Column(Date, nullable=True)
+    nominee_address = Column(String, nullable=True)
+    nominee_aadhar = Column(String, nullable=True)
+    nominee_mobile = Column(String, nullable=True)
+
+    # -------------------------
+    # Nominee Aadhaar Documents
+    # -------------------------
+    nominee_aadhar_front = Column(String, nullable=True)
+    nominee_aadhar_back = Column(String, nullable=True)
+
+    # -------------------------
+    # Timestamps
+    # -------------------------
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    # -------------------------
+    # Relationship
+    # -------------------------
+    user = relationship(
+        "User",
+        back_populates="bank_details"
+    )
 
 # ==========================================================
 # USER KYC
@@ -1125,38 +1169,21 @@ class UserKYC(Base):
     )
 
     user_id = Column(
-        Integer,
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
+    Integer,
+    ForeignKey("users.id", ondelete="CASCADE"),
+    nullable=False,
+    unique=True,
+    index=True
+)
 
-    document_type = Column(
-        String,
-        nullable=False
-    )
+    aadhar_no = Column(String, unique=True, nullable=False)
+    
+    pan_no = Column(String, nullable=True)
 
-    # Front document
-    front_file_name = Column(
-        String,
-        nullable=False
-    )
-
-    front_file_url = Column(
-        Text,
-        nullable=False
-    )
-
-    # Back document
-    back_file_name = Column(
-        String,
-        nullable=True
-    )
-
-    back_file_url = Column(
-        Text,
-        nullable=True
-    )
+    aadhar_front = Column(String, nullable=True)
+    aadhar_back = Column(String, nullable=True)
+    pan_image = Column(String,nullable=True )
+    
 
     status = Column(
         String,
@@ -1279,4 +1306,28 @@ class SupportTicketMessage(Base):
         DateTime,
         server_default=func.now(),
         nullable=False,
+    )
+
+class ReturnDateSetting(Base):
+    __tablename__ = "return_date_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    from_day = Column(Integer, nullable=False)
+    to_day = Column(Integer, nullable=False)
+    payout_day = Column(Integer, nullable=False)
+
+    status = Column(Boolean, default=True, nullable=False)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False
     )

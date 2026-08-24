@@ -1,4 +1,3 @@
-import os
 import uuid
 from pathlib import Path
 
@@ -19,17 +18,11 @@ from app.database import get_db
 from app.core.security import get_current_user
 from app.models import User, UserKYC
 
-# IMPORTANT:
-# Use the SAME spaces.py used by support tickets.
 from app.utils.spaces import (
     s3_client,
     SPACES_BUCKET,
 )
 
-
-# ==========================================================
-# ROUTER
-# ==========================================================
 
 router = APIRouter(
     prefix="/api/user/kyc",
@@ -38,16 +31,8 @@ router = APIRouter(
 
 
 # ==========================================================
-# KYC SETTINGS
+# SETTINGS
 # ==========================================================
-
-ALLOWED_DOCUMENT_TYPES = {
-    "aadhaar",
-    "pan",
-    "passport",
-    "bank_proof",
-    "other",
-}
 
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
@@ -56,7 +41,7 @@ ALLOWED_CONTENT_TYPES = {
     "application/pdf",
 }
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 # ==========================================================
@@ -64,22 +49,20 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 # ==========================================================
 
 def get_database_user(
-    current_user,
+    current_user: str,
     db: Session,
 ) -> User:
 
     user = (
         db.query(User)
-        .filter(
-            User.user_id == current_user
-        )
+        .filter(User.user_id == current_user)
         .first()
     )
 
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="User not found.",
+            detail="User not found."
         )
 
     return user
@@ -90,14 +73,13 @@ def get_database_user(
 # ==========================================================
 
 def delete_spaces_object(
-    object_key: str,
+    object_key: str | None,
 ):
 
     if not object_key:
         return
 
     try:
-
         s3_client.delete_object(
             Bucket=SPACES_BUCKET,
             Key=object_key,
@@ -110,16 +92,16 @@ def delete_spaces_object(
 
         print(
             "Spaces delete error:",
-            str(exc),
+            str(exc)
         )
 
 
 # ==========================================================
-# GENERATE PRESIGNED URL
+# PRESIGNED URL
 # ==========================================================
 
 def generate_presigned_url(
-    object_key: str,
+    object_key: str | None,
     expires_in: int = 300,
 ):
 
@@ -144,12 +126,12 @@ def generate_presigned_url(
 
         print(
             "Presigned URL error:",
-            str(exc),
+            str(exc)
         )
 
         raise HTTPException(
             status_code=500,
-            detail="Unable to generate document URL.",
+            detail="Unable to generate document URL."
         )
 
 
@@ -161,7 +143,6 @@ def create_object_key(
     user_id: int,
     document_type: str,
     filename: str,
-    side: str = "front",
 ):
 
     extension = Path(
@@ -172,15 +153,13 @@ def create_object_key(
         extension = ".bin"
 
     unique_filename = (
-        f"{uuid.uuid4().hex}"
-        f"{extension}"
+        f"{uuid.uuid4().hex}{extension}"
     )
 
     return (
         f"user_kyc/"
         f"{user_id}/"
         f"{document_type}/"
-        f"{side}/"
         f"{unique_filename}"
     )
 
@@ -194,10 +173,9 @@ async def validate_file(
 ):
 
     if not file.filename:
-
         raise HTTPException(
             status_code=400,
-            detail="File name is required.",
+            detail="File name is required."
         )
 
     if file.content_type not in ALLOWED_CONTENT_TYPES:
@@ -206,9 +184,9 @@ async def validate_file(
             status_code=400,
             detail=(
                 "Invalid file type. "
-                "Only JPG, JPEG, PNG and PDF "
-                "files are allowed."
-            ),
+                "Only JPG, JPEG, PNG and PDF files "
+                "are allowed."
+            )
         )
 
     file_data = await file.read()
@@ -217,21 +195,21 @@ async def validate_file(
 
         raise HTTPException(
             status_code=400,
-            detail="Uploaded file is empty.",
+            detail="Uploaded file is empty."
         )
 
     if len(file_data) > MAX_FILE_SIZE:
 
         raise HTTPException(
             status_code=400,
-            detail="Maximum file size is 10 MB.",
+            detail="Maximum file size is 10 MB."
         )
 
     return file_data
 
 
 # ==========================================================
-# UPLOAD FILE TO SPACES
+# UPLOAD TO SPACES
 # ==========================================================
 
 def upload_to_spaces(
@@ -255,49 +233,44 @@ def upload_to_spaces(
     ) as exc:
 
         print(
-            "KYC Spaces upload error:",
-            str(exc),
+            "Spaces upload error:",
+            str(exc)
         )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to upload KYC document.",
+            detail="Failed to upload KYC document."
         )
 
 
 # ==========================================================
-# UPLOAD KYC
+# UPLOAD / UPDATE KYC
 # ==========================================================
 
-@router.post(
-    "/upload",
-)
+@router.post("/upload")
 async def upload_kyc_document(
+    # ======================================================
+    # AADHAAR
+    # ======================================================
 
-    document_type: str = Form(...),
-
-    # Aadhaar number
     aadhar_no: str | None = Form(None),
+    aadhar_front: UploadFile | None = File(None),
+    aadhar_back: UploadFile | None = File(None),
 
-    # PAN number
-    pan: str | None = Form(None),
+    # ======================================================
+    # PAN
+    # ======================================================
 
-    # Aadhaar front
-    front_file: UploadFile | None = File(None),
+    pan_no: str | None = Form(None),
+    pan_image: UploadFile | None = File(None),
 
-    # Aadhaar back
-    back_file: UploadFile | None = File(None),
+    # ======================================================
+    # AUTH
+    # ======================================================
 
-    # Used for PAN / passport / bank proof / other
-    file: UploadFile | None = File(None),
-
-    current_user=Depends(
-        get_current_user
-    ),
-
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
     # ======================================================
     # GET USER
     # ======================================================
@@ -308,53 +281,74 @@ async def upload_kyc_document(
     )
 
     # ======================================================
-    # NORMALIZE DOCUMENT TYPE
+    # GET EXISTING KYC
     # ======================================================
 
-    document_type = (
-        document_type
-        .strip()
-        .lower()
+    kyc = (
+        db.query(UserKYC)
+        .filter(
+            UserKYC.user_id == user.id
+        )
+        .first()
     )
 
-    if document_type == "aadhar":
-        document_type = "aadhaar"
-
-    if document_type == "bankproof":
-        document_type = "bank_proof"
-
     # ======================================================
-    # VALIDATE DOCUMENT TYPE
+    # CHECK WHETHER ANYTHING WAS PROVIDED
     # ======================================================
 
-    if document_type not in ALLOWED_DOCUMENT_TYPES:
+    has_aadhaar = any([
+        aadhar_no,
+        aadhar_front,
+        aadhar_back,
+    ])
 
+    has_pan = any([
+        pan_no,
+        pan_image,
+    ])
+
+    if not has_aadhaar and not has_pan:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Invalid document type. "
-                "Allowed types: "
-                "aadhaar, pan, passport, "
-                "bank_proof, other"
-            ),
+                "Please provide Aadhaar details "
+                "or PAN details."
+            )
         )
 
     # ======================================================
-    # AADHAAR
+    # AADHAAR VALIDATION
     # ======================================================
 
-    if document_type == "aadhaar":
+    new_aadhar_front_key = None
+    new_aadhar_back_key = None
 
-        # --------------------------------------------------
-        # AADHAAR NUMBER REQUIRED
-        # --------------------------------------------------
+    old_aadhar_front = None
+    old_aadhar_back = None
+
+    if has_aadhaar:
 
         if not aadhar_no:
-
             raise HTTPException(
                 status_code=400,
-                detail="Aadhaar number is required.",
+                detail="Aadhaar number is required."
             )
+
+        if not aadhar_front:
+            raise HTTPException(
+                status_code=400,
+                detail="Aadhaar front document is required."
+            )
+
+        if not aadhar_back:
+            raise HTTPException(
+                status_code=400,
+                detail="Aadhaar back document is required."
+            )
+
+        # --------------------------------------------------
+        # NORMALIZE AADHAAR
+        # --------------------------------------------------
 
         aadhar_no = (
             aadhar_no
@@ -363,61 +357,41 @@ async def upload_kyc_document(
         )
 
         # --------------------------------------------------
-        # VALIDATE AADHAAR NUMBER
+        # VALIDATE AADHAAR
         # --------------------------------------------------
 
         if (
             not aadhar_no.isdigit()
             or len(aadhar_no) != 12
         ):
-
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "Aadhaar number must contain "
                     "exactly 12 digits."
-                ),
+                )
             )
 
         # --------------------------------------------------
         # CHECK UNIQUE AADHAAR
         # --------------------------------------------------
 
-        existing_user = (
-            db.query(User)
+        existing_aadhar = (
+            db.query(UserKYC)
             .filter(
-                User.aadhar_no == aadhar_no,
-                User.id != user.id,
+                UserKYC.aadhar_no == aadhar_no,
+                UserKYC.user_id != user.id,
             )
             .first()
         )
 
-        if existing_user:
-
+        if existing_aadhar:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "This Aadhaar number is already "
                     "registered with another user."
-                ),
-            )
-
-        # --------------------------------------------------
-        # BOTH FILES REQUIRED
-        # --------------------------------------------------
-
-        if not front_file:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Aadhaar front image is required.",
-            )
-
-        if not back_file:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Aadhaar back image is required.",
+                )
             )
 
         # --------------------------------------------------
@@ -425,7 +399,7 @@ async def upload_kyc_document(
         # --------------------------------------------------
 
         front_data = await validate_file(
-            front_file
+            aadhar_front
         )
 
         # --------------------------------------------------
@@ -433,25 +407,23 @@ async def upload_kyc_document(
         # --------------------------------------------------
 
         back_data = await validate_file(
-            back_file
+            aadhar_back
         )
 
         # --------------------------------------------------
         # CREATE OBJECT KEYS
         # --------------------------------------------------
 
-        front_object_key = create_object_key(
+        new_aadhar_front_key = create_object_key(
             user_id=user.id,
             document_type="aadhaar",
-            filename=front_file.filename,
-            side="front",
+            filename=aadhar_front.filename,
         )
 
-        back_object_key = create_object_key(
+        new_aadhar_back_key = create_object_key(
             user_id=user.id,
             document_type="aadhaar",
-            filename=back_file.filename,
-            side="back",
+            filename=aadhar_back.filename,
         )
 
         # --------------------------------------------------
@@ -459,9 +431,9 @@ async def upload_kyc_document(
         # --------------------------------------------------
 
         upload_to_spaces(
-            object_key=front_object_key,
+            object_key=new_aadhar_front_key,
             file_data=front_data,
-            content_type=front_file.content_type,
+            content_type=aadhar_front.content_type,
         )
 
         # --------------------------------------------------
@@ -471,374 +443,136 @@ async def upload_kyc_document(
         try:
 
             upload_to_spaces(
-                object_key=back_object_key,
+                object_key=new_aadhar_back_key,
                 file_data=back_data,
-                content_type=back_file.content_type,
+                content_type=aadhar_back.content_type,
             )
 
         except Exception:
 
-            # If back upload fails,
-            # remove already uploaded front.
-
             delete_spaces_object(
-                front_object_key
+                new_aadhar_front_key
             )
 
             raise
 
         # --------------------------------------------------
-        # FIND EXISTING AADHAAR KYC
+        # SAVE OLD FILE KEYS
         # --------------------------------------------------
 
-        existing_kyc = (
-            db.query(UserKYC)
-            .filter(
-                UserKYC.user_id == user.id,
-                UserKYC.document_type == "aadhaar",
-            )
-            .first()
-        )
+        if kyc:
 
-        # --------------------------------------------------
-        # UPDATE USER AADHAAR
-        # --------------------------------------------------
-
-        user.aadhar_no = aadhar_no
-
-        # --------------------------------------------------
-        # UPDATE EXISTING KYC
-        # --------------------------------------------------
-
-        if existing_kyc:
-
-            old_front_key = (
-                existing_kyc.front_file_url
-            )
-
-            old_back_key = (
-                existing_kyc.back_file_url
-            )
-
-            existing_kyc.front_file_name = (
-                front_file.filename
-            )
-
-            existing_kyc.front_file_url = (
-                front_object_key
-            )
-
-            existing_kyc.back_file_name = (
-                back_file.filename
-            )
-
-            existing_kyc.back_file_url = (
-                back_object_key
-            )
-
-            existing_kyc.status = "PENDING"
-
-            existing_kyc.rejection_reason = None
-
-            try:
-
-                db.commit()
-                db.refresh(existing_kyc)
-
-            except Exception as exc:
-
-                db.rollback()
-
-                delete_spaces_object(
-                    front_object_key
-                )
-
-                delete_spaces_object(
-                    back_object_key
-                )
-
-                print(
-                    "KYC database update error:",
-                    str(exc),
-                )
-
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        "Failed to update KYC document."
-                    ),
-                )
-
-            # Delete old files
-            if old_front_key:
-                delete_spaces_object(
-                    old_front_key
-                )
-
-            if old_back_key:
-                delete_spaces_object(
-                    old_back_key
-                )
-
-            return {
-                "message": (
-                    "Aadhaar documents uploaded "
-                    "successfully."
-                ),
-                "kyc_id": existing_kyc.id,
-                "document_type": "aadhaar",
-                "aadhar_no": user.aadhar_no,
-                "status": existing_kyc.status,
-            }
-
-        # --------------------------------------------------
-        # CREATE NEW KYC
-        # --------------------------------------------------
-
-        kyc = UserKYC(
-            user_id=user.id,
-            document_type="aadhaar",
-
-            front_file_name=front_file.filename,
-            front_file_url=front_object_key,
-
-            back_file_name=back_file.filename,
-            back_file_url=back_object_key,
-
-            status="PENDING",
-            rejection_reason=None,
-        )
-
-        db.add(kyc)
-
-        try:
-
-            db.commit()
-            db.refresh(kyc)
-
-        except Exception as exc:
-
-            db.rollback()
-
-            delete_spaces_object(
-                front_object_key
-            )
-
-            delete_spaces_object(
-                back_object_key
-            )
-
-            print(
-                "KYC database insert error:",
-                str(exc),
-            )
-
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to save KYC document.",
-            )
-
-        return {
-            "message": (
-                "Aadhaar documents uploaded "
-                "successfully."
-            ),
-            "kyc_id": kyc.id,
-            "document_type": "aadhaar",
-            "aadhar_no": user.aadhar_no,
-            "status": kyc.status,
-        }
+            old_aadhar_front = kyc.aadhar_front
+            old_aadhar_back = kyc.aadhar_back
 
     # ======================================================
-    # PAN
+    # PAN VALIDATION
     # ======================================================
 
-    if document_type == "pan":
+    new_pan_key = None
+    old_pan_key = None
 
-        # --------------------------------------------------
-        # PAN REQUIRED
-        # --------------------------------------------------
+    if has_pan:
 
-        if not pan:
-
+        if not pan_no:
             raise HTTPException(
                 status_code=400,
-                detail="PAN number is required.",
+                detail="PAN number is required."
             )
 
-        pan = pan.strip().upper()
+        if not pan_image:
+            raise HTTPException(
+                status_code=400,
+                detail="PAN document is required."
+            )
 
         # --------------------------------------------------
-        # BASIC PAN VALIDATION
+        # NORMALIZE PAN
         # --------------------------------------------------
 
-        import re
-
-        # if not re.fullmatch(
-        #     r"[A-Z]{5}[0-9]{4}[A-Z]",
-        #     pan,
-        # ):
-
-        #     raise HTTPException(
-        #         status_code=400,
-        #         detail="Invalid PAN number.",
-        #     )
+        pan_no = pan_no.strip().upper()
 
         # --------------------------------------------------
-        # CHECK PAN UNIQUE
+        # CHECK UNIQUE PAN
         # --------------------------------------------------
 
-        existing_user = (
-            db.query(User)
+        existing_pan = (
+            db.query(UserKYC)
             .filter(
-                User.pan == pan,
-                User.id != user.id,
+                UserKYC.pan_no == pan_no,
+                UserKYC.user_id != user.id,
             )
             .first()
         )
 
-        if existing_user:
-
+        if existing_pan:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "This PAN number is already "
                     "registered with another user."
-                ),
+                )
             )
 
         # --------------------------------------------------
-        # FILE REQUIRED
+        # VALIDATE PAN FILE
         # --------------------------------------------------
 
-        if not file:
-
-            raise HTTPException(
-                status_code=400,
-                detail="PAN document is required.",
-            )
-
-        file_data = await validate_file(
-            file
+        pan_data = await validate_file(
+            pan_image
         )
 
         # --------------------------------------------------
-        # CREATE OBJECT KEY
+        # CREATE PAN KEY
         # --------------------------------------------------
 
-        object_key = create_object_key(
+        new_pan_key = create_object_key(
             user_id=user.id,
             document_type="pan",
-            filename=file.filename,
-            side="front",
+            filename=pan_image.filename,
         )
 
         # --------------------------------------------------
-        # UPLOAD
+        # UPLOAD PAN
         # --------------------------------------------------
 
         upload_to_spaces(
-            object_key=object_key,
-            file_data=file_data,
-            content_type=file.content_type,
+            object_key=new_pan_key,
+            file_data=pan_data,
+            content_type=pan_image.content_type,
         )
 
-        # --------------------------------------------------
-        # FIND EXISTING KYC
-        # --------------------------------------------------
+        if kyc:
+            old_pan_key = kyc.pan_image
 
-        existing_kyc = (
-            db.query(UserKYC)
-            .filter(
-                UserKYC.user_id == user.id,
-                UserKYC.document_type == "pan",
-            )
-            .first()
-        )
+    # ======================================================
+    # CREATE KYC RECORD
+    # ======================================================
 
-        # --------------------------------------------------
-        # UPDATE USER PAN
-        # --------------------------------------------------
+    if not kyc:
 
-        user.pan = pan
+        # Because Aadhaar is currently nullable=False
+        if not aadhar_no:
+            if new_pan_key:
+                delete_spaces_object(new_pan_key)
 
-        # --------------------------------------------------
-        # UPDATE EXISTING
-        # --------------------------------------------------
-
-        if existing_kyc:
-
-            old_object_key = (
-                existing_kyc.front_file_url
-            )
-
-            existing_kyc.front_file_name = (
-                file.filename
-            )
-
-            existing_kyc.front_file_url = (
-                object_key
-            )
-
-            existing_kyc.back_file_name = None
-            existing_kyc.back_file_url = None
-
-            existing_kyc.status = "PENDING"
-            existing_kyc.rejection_reason = None
-
-            try:
-
-                db.commit()
-                db.refresh(existing_kyc)
-
-            except Exception as exc:
-
-                db.rollback()
-
-                delete_spaces_object(
-                    object_key
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Aadhaar details are required "
+                    "for the first KYC submission."
                 )
-
-                print(
-                    "PAN database update error:",
-                    str(exc),
-                )
-
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        "Failed to update PAN document."
-                    ),
-                )
-
-            if old_object_key:
-                delete_spaces_object(
-                    old_object_key
-                )
-
-            return {
-                "message": (
-                    "PAN document uploaded successfully."
-                ),
-                "kyc_id": existing_kyc.id,
-                "document_type": "pan",
-                "pan": user.pan,
-                "status": existing_kyc.status,
-            }
-
-        # --------------------------------------------------
-        # CREATE NEW PAN KYC
-        # --------------------------------------------------
+            )
 
         kyc = UserKYC(
             user_id=user.id,
-            document_type="pan",
 
-            front_file_name=file.filename,
-            front_file_url=object_key,
+            aadhar_no=aadhar_no,
+            aadhar_front=new_aadhar_front_key,
+            aadhar_back=new_aadhar_back_key,
 
-            back_file_name=None,
-            back_file_url=None,
+            pan_no=pan_no if has_pan else None,
+            pan_image=new_pan_key if has_pan else None,
 
             status="PENDING",
             rejection_reason=None,
@@ -846,148 +580,37 @@ async def upload_kyc_document(
 
         db.add(kyc)
 
-        try:
+    else:
 
-            db.commit()
-            db.refresh(kyc)
+        # --------------------------------------------------
+        # UPDATE AADHAAR
+        # --------------------------------------------------
 
-        except Exception as exc:
+        if has_aadhaar:
 
-            db.rollback()
+            kyc.aadhar_no = aadhar_no
+            kyc.aadhar_front = new_aadhar_front_key
+            kyc.aadhar_back = new_aadhar_back_key
 
-            delete_spaces_object(
-                object_key
-            )
+        # --------------------------------------------------
+        # UPDATE PAN
+        # --------------------------------------------------
 
-            print(
-                "PAN database insert error:",
-                str(exc),
-            )
+        if has_pan:
 
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to save PAN document.",
-            )
+            kyc.pan_no = pan_no
+            kyc.pan_image = new_pan_key
 
-        return {
-            "message": (
-                "PAN document uploaded successfully."
-            ),
-            "kyc_id": kyc.id,
-            "document_type": "pan",
-            "pan": user.pan,
-            "status": kyc.status,
-        }
+        # --------------------------------------------------
+        # RESET STATUS
+        # --------------------------------------------------
+
+        kyc.status = "PENDING"
+        kyc.rejection_reason = None
 
     # ======================================================
-    # OTHER DOCUMENT TYPES
+    # SAVE DATABASE
     # ======================================================
-
-    if not file:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Document file is required.",
-        )
-
-    file_data = await validate_file(
-        file
-    )
-
-    object_key = create_object_key(
-        user_id=user.id,
-        document_type=document_type,
-        filename=file.filename,
-        side="front",
-    )
-
-    upload_to_spaces(
-        object_key=object_key,
-        file_data=file_data,
-        content_type=file.content_type,
-    )
-
-    existing_kyc = (
-        db.query(UserKYC)
-        .filter(
-            UserKYC.user_id == user.id,
-            UserKYC.document_type == document_type,
-        )
-        .first()
-    )
-
-    if existing_kyc:
-
-        old_object_key = (
-            existing_kyc.front_file_url
-        )
-
-        existing_kyc.front_file_name = (
-            file.filename
-        )
-
-        existing_kyc.front_file_url = (
-            object_key
-        )
-
-        existing_kyc.back_file_name = None
-        existing_kyc.back_file_url = None
-
-        existing_kyc.status = "PENDING"
-        existing_kyc.rejection_reason = None
-
-        try:
-
-            db.commit()
-            db.refresh(existing_kyc)
-
-        except Exception as exc:
-
-            db.rollback()
-
-            delete_spaces_object(
-                object_key
-            )
-
-            print(
-                "KYC database update error:",
-                str(exc),
-            )
-
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to update KYC document.",
-            )
-
-        if old_object_key:
-            delete_spaces_object(
-                old_object_key
-            )
-
-        return {
-            "message": (
-                f"{document_type} uploaded successfully."
-            ),
-            "kyc_id": existing_kyc.id,
-            "document_type": document_type,
-            "status": existing_kyc.status,
-        }
-
-    kyc = UserKYC(
-        user_id=user.id,
-        document_type=document_type,
-
-        front_file_name=file.filename,
-        front_file_url=object_key,
-
-        back_file_name=None,
-        back_file_url=None,
-
-        status="PENDING",
-        rejection_reason=None,
-    )
-
-    db.add(kyc)
 
     try:
 
@@ -998,157 +621,173 @@ async def upload_kyc_document(
 
         db.rollback()
 
+        # Delete newly uploaded files
         delete_spaces_object(
-            object_key
+            new_aadhar_front_key
+        )
+
+        delete_spaces_object(
+            new_aadhar_back_key
+        )
+
+        delete_spaces_object(
+            new_pan_key
         )
 
         print(
-            "KYC database insert error:",
-            str(exc),
+            "KYC database error:",
+            str(exc)
         )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to save KYC document.",
+            detail="Failed to save KYC details."
         )
 
+    # ======================================================
+    # DELETE OLD FILES
+    # ======================================================
+
+    if has_aadhaar:
+
+        if old_aadhar_front:
+            delete_spaces_object(
+                old_aadhar_front
+            )
+
+        if old_aadhar_back:
+            delete_spaces_object(
+                old_aadhar_back
+            )
+
+    if has_pan:
+
+        if old_pan_key:
+            delete_spaces_object(
+                old_pan_key
+            )
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
+
     return {
-        "message": (
-            f"{document_type} uploaded successfully."
-        ),
+        "message": "KYC details uploaded successfully.",
+
         "kyc_id": kyc.id,
-        "document_type": document_type,
+
+        "aadhar_no": kyc.aadhar_no,
+
+        "pan_no": kyc.pan_no,
+
         "status": kyc.status,
     }
-
-
 # ==========================================================
-# GET MY KYC DOCUMENTS
+# GET MY KYC
 # ==========================================================
 
 @router.get("")
 def get_my_kyc(
-    current_user=Depends(get_current_user),
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
-    # ======================================================
-    # GET DATABASE USER
-    # ======================================================
 
     user = get_database_user(
         current_user=current_user,
         db=db,
     )
 
-    # ======================================================
-    # GET KYC DOCUMENTS
-    # ======================================================
-
-    documents = (
+    kyc = (
         db.query(UserKYC)
         .filter(
             UserKYC.user_id == user.id
         )
-        .order_by(
-            UserKYC.uploaded_at.desc()
-        )
-        .all()
+        .first()
     )
 
-    kyc_documents = []
+    if not kyc:
 
-    # ======================================================
-    # BUILD DOCUMENT RESPONSE
-    # ======================================================
+        return {
+            "user_id": user.id,
+            "aadhar_no": None,
+            "pan_no": None,
+            "documents": [],
+        }
 
-    for kyc in documents:
+    documents = []
 
-        # --------------------------------------------------
-        # FRONT URL
-        # --------------------------------------------------
+    # ------------------------------------------------------
+    # AADHAAR
+    # ------------------------------------------------------
 
-        front_url = generate_presigned_url(
-            kyc.front_file_url,
-            expires_in=300,
-        )
+    if (
+        kyc.aadhar_front
+        or kyc.aadhar_back
+    ):
 
-        # --------------------------------------------------
-        # BACK URL
-        # --------------------------------------------------
+        documents.append({
+            "document_type": "aadhaar",
 
-        back_url = None
+            "front_url": generate_presigned_url(
+                kyc.aadhar_front
+            ),
 
-        if kyc.back_file_url:
+            "back_url": generate_presigned_url(
+                kyc.aadhar_back
+            ),
 
-            back_url = generate_presigned_url(
-                kyc.back_file_url,
-                expires_in=300,
-            )
+            "status": kyc.status,
 
-        # --------------------------------------------------
-        # DOCUMENT
-        # --------------------------------------------------
+            "rejection_reason": (
+                kyc.rejection_reason
+            ),
+        })
 
-        kyc_documents.append(
-            {
-                "id": kyc.id,
+    # ------------------------------------------------------
+    # PAN
+    # ------------------------------------------------------
 
-                "document_type": (
-                    kyc.document_type
-                ),
+    if kyc.pan_image:
 
-                "front_file_name": (
-                    kyc.front_file_name
-                ),
+        documents.append({
+            "document_type": "pan",
 
-                "back_file_name": (
-                    kyc.back_file_name
-                ),
+            "front_url": generate_presigned_url(
+                kyc.pan_image
+            ),
 
-                "status": (
-                    kyc.status
-                ),
+            "back_url": None,
 
-                "rejection_reason": (
-                    kyc.rejection_reason
-                ),
+            "status": kyc.status,
 
-                "uploaded_at": (
-                    kyc.uploaded_at
-                ),
-
-                "updated_at": (
-                    kyc.updated_at
-                ),
-
-                "front_url": front_url,
-
-                "back_url": back_url,
-
-                "expires_in": 300,
-            }
-        )
-
-    # ======================================================
-    # FINAL RESPONSE
-    # ======================================================
+            "rejection_reason": (
+                kyc.rejection_reason
+            ),
+        })
 
     return {
         "user_id": user.id,
-        "aadhar_no": user.aadhar_no,
-        "pan": user.pan,
-        "documents": kyc_documents,
+
+        "aadhar_no": kyc.aadhar_no,
+
+        "pan_no": kyc.pan_no,
+
+        "documents": documents,
+
+        "uploaded_at": kyc.uploaded_at,
+
+        "updated_at": kyc.updated_at,
     }
 
+
 # ==========================================================
-# GET SINGLE KYC
+# GET KYC
 # ==========================================================
 
 @router.get("/{kyc_id}")
 def get_kyc_document(
     kyc_id: int,
-    current_user=Depends(get_current_user),
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
 
@@ -1170,55 +809,56 @@ def get_kyc_document(
 
         raise HTTPException(
             status_code=404,
-            detail="KYC document not found.",
-        )
-
-    front_url = generate_presigned_url(
-        kyc.front_file_url,
-        expires_in=300,
-    )
-
-    back_url = None
-
-    if kyc.back_file_url:
-
-        back_url = generate_presigned_url(
-            kyc.back_file_url,
-            expires_in=300,
+            detail="KYC document not found."
         )
 
     return {
         "id": kyc.id,
+
         "user_id": kyc.user_id,
-        "document_type": kyc.document_type,
 
-        "front_file_name": kyc.front_file_name,
-        "back_file_name": kyc.back_file_name,
+        "aadhar_no": kyc.aadhar_no,
 
-        "aadhar_no": user.aadhar_no,
-        "pan": user.pan,
+        "pan_no": kyc.pan_no,
+
+        "aadhar_front_url":
+            generate_presigned_url(
+                kyc.aadhar_front
+            ),
+
+        "aadhar_back_url":
+            generate_presigned_url(
+                kyc.aadhar_back
+            ),
+
+        "pan_url":
+            generate_presigned_url(
+                kyc.pan_image
+            ),
 
         "status": kyc.status,
-        "rejection_reason": kyc.rejection_reason,
 
-        "uploaded_at": kyc.uploaded_at,
-        "updated_at": kyc.updated_at,
+        "rejection_reason":
+            kyc.rejection_reason,
 
-        "front_url": front_url,
-        "back_url": back_url,
+        "uploaded_at":
+            kyc.uploaded_at,
+
+        "updated_at":
+            kyc.updated_at,
 
         "expires_in": 300,
     }
 
 
 # ==========================================================
-# VIEW KYC DOCUMENT
+# VIEW KYC
 # ==========================================================
 
 @router.get("/{kyc_id}/view")
 def view_kyc_document(
     kyc_id: int,
-    current_user=Depends(get_current_user),
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
 
@@ -1240,29 +880,26 @@ def view_kyc_document(
 
         raise HTTPException(
             status_code=404,
-            detail="KYC document not found.",
-        )
-
-    front_url = generate_presigned_url(
-        kyc.front_file_url,
-        expires_in=300,
-    )
-
-    back_url = None
-
-    if kyc.back_file_url:
-
-        back_url = generate_presigned_url(
-            kyc.back_file_url,
-            expires_in=300,
+            detail="KYC document not found."
         )
 
     return {
         "id": kyc.id,
-        "document_type": kyc.document_type,
 
-        "front_url": front_url,
-        "back_url": back_url,
+        "aadhar_front_url":
+            generate_presigned_url(
+                kyc.aadhar_front
+            ),
+
+        "aadhar_back_url":
+            generate_presigned_url(
+                kyc.aadhar_back
+            ),
+
+        "pan_url":
+            generate_presigned_url(
+                kyc.pan_image
+            ),
 
         "expires_in": 300,
     }
@@ -1275,7 +912,7 @@ def view_kyc_document(
 @router.delete("/{kyc_id}")
 def delete_kyc_document(
     kyc_id: int,
-    current_user=Depends(get_current_user),
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
 
@@ -1297,7 +934,7 @@ def delete_kyc_document(
 
         raise HTTPException(
             status_code=404,
-            detail="KYC document not found.",
+            detail="KYC document not found."
         )
 
     if kyc.status == "APPROVED":
@@ -1307,11 +944,20 @@ def delete_kyc_document(
             detail=(
                 "Approved KYC documents "
                 "cannot be deleted."
-            ),
+            )
         )
 
-    front_object_key = kyc.front_file_url
-    back_object_key = kyc.back_file_url
+    # ------------------------------------------------------
+    # SAVE FILE KEYS
+    # ------------------------------------------------------
+
+    aadhar_front = kyc.aadhar_front
+    aadhar_back = kyc.aadhar_back
+    pan_image = kyc.pan_image
+
+    # ------------------------------------------------------
+    # DELETE DATABASE
+    # ------------------------------------------------------
 
     try:
 
@@ -1324,29 +970,23 @@ def delete_kyc_document(
 
         print(
             "KYC delete database error:",
-            str(exc),
+            str(exc)
         )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to delete KYC document.",
+            detail="Failed to delete KYC document."
         )
 
-    if front_object_key:
+    # ------------------------------------------------------
+    # DELETE SPACES FILES
+    # ------------------------------------------------------
 
-        delete_spaces_object(
-            front_object_key
-        )
-
-    if back_object_key:
-
-        delete_spaces_object(
-            back_object_key
-        )
+    delete_spaces_object(aadhar_front)
+    delete_spaces_object(aadhar_back)
+    delete_spaces_object(pan_image)
 
     return {
-        "message": (
-            "KYC document deleted successfully."
-        ),
+        "message": "KYC documents deleted successfully.",
         "kyc_id": kyc_id,
     }

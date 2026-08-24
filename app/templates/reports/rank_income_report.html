@@ -1,0 +1,30 @@
+{% block summary %}
+
+<div class="summary-grid">
+
+    <div class="summary-box">
+        <div class="summary-label">
+            Total Records
+        </div>
+
+        <div class="summary-value">
+            {{ summary.total_records or 0 }}
+        </div>
+    </div>
+
+
+    <div class="summary-box">
+        <div class="summary-label">
+            Total Reward Income
+        </div>
+
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(
+                summary.total_reward_income or 0
+            ) }}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

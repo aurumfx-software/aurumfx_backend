@@ -144,6 +144,7 @@ class AdminInvestmentResponse(BaseModel):
     investment_status: str
     approval_status: str
     investment_date: date
+    payment_proof: str
 
     class Config:
         from_attributes = True
@@ -626,3 +627,34 @@ class BankStatusUpdateRequest(BaseModel):
             )
 
         return value
+
+class KYCStatusUpdateRequest(BaseModel):
+    status: str
+    rejection_reason: str | None = None
+
+
+class ReturnDateSettingCreate(BaseModel):
+    from_day: int = Field(..., ge=1, le=31)
+    to_day: int = Field(..., ge=1, le=31)
+    payout_day: int = Field(..., ge=1, le=31)
+    status: bool = True
+
+
+class ReturnDateSettingUpdate(BaseModel):
+    from_day: int | None = Field(None, ge=1, le=31)
+    to_day: int | None = Field(None, ge=1, le=31)
+    payout_day: int | None = Field(None, ge=1, le=31)
+    status: bool | None = None
+
+
+class ReturnDateSettingResponse(BaseModel):
+    id: int
+    from_day: int
+    to_day: int
+    payout_day: int
+    status: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

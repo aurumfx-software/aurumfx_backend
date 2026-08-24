@@ -10,7 +10,8 @@ from app.models import (
 from app.schemas import (
     RankSettingCreate,
     RankSettingUpdate,
-    RankSettingResponse
+    RankSettingResponse,
+    RankHolderResponse
 )
 from app.core.security import get_current_user
 
@@ -285,3 +286,50 @@ def delete_rank(
     return {
         "message":"Rank deleted successfully"
     }
+
+@router.get(
+    "/{rank_id}/holders",
+    response_model=list[RankHolderResponse]
+)
+def get_rank_holders(
+    rank_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all users who currently hold the specified rank.
+    """
+
+    rank = (
+        db.query(RankSetting)
+        .filter(RankSetting.id == rank_id)
+        .first()
+    )
+
+    if not rank:
+        raise HTTPException(
+            status_code=404,
+            detail="Rank not found"
+        )
+
+    users = (
+        db.query(User)
+        .filter(
+            User.current_rank_id == rank_id
+        )
+        .order_by(User.id.asc())
+        .all()
+    )
+
+    return [
+        RankHolderResponse(
+            id=user.id,
+            user_id=user.user_id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            rank_id=user.current_rank_id,
+            image=user.profile_image,
+
+
+        )
+        for user in users
+    ]

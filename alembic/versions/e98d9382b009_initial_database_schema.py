@@ -1,8 +1,8 @@
-"""initial schema
+"""initial database schema
 
-Revision ID: 86d3bf4df314
+Revision ID: e98d9382b009
 Revises: 
-Create Date: 2026-08-16 11:14:06.520297
+Create Date: 2026-08-22 09:54:34.626935
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '86d3bf4df314'
+revision: str = 'e98d9382b009'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -72,6 +72,7 @@ def upgrade() -> None:
     sa.Column('minimum_total_lots', sa.Integer(), nullable=False),
     sa.Column('minimum_direct_sponsors', sa.Integer(), nullable=False),
     sa.Column('reward_income', sa.Float(), nullable=False),
+    sa.Column('criteria', sa.Text(), nullable=True),
     sa.Column('status', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
@@ -119,38 +120,24 @@ def upgrade() -> None:
     sa.Column('user_id', sa.String(), nullable=True),
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('first_name', sa.String(), nullable=False),
-    sa.Column('last_name', sa.String(), nullable=False),
+    sa.Column('last_name', sa.String(), nullable=True),
     sa.Column('password', sa.String(), nullable=False),
     sa.Column('enroller_id', sa.String(), nullable=True),
     sa.Column('date_of_birth', sa.Date(), nullable=False),
     sa.Column('country', sa.String(), nullable=False),
-    sa.Column('aadhar_no', sa.String(), nullable=False),
     sa.Column('city', sa.String(), nullable=True),
-    sa.Column('zip_code', sa.String(), nullable=False),
+    sa.Column('zip_code', sa.String(), nullable=True),
     sa.Column('mobile', sa.String(), nullable=False),
-    sa.Column('pan', sa.String(), nullable=False),
     sa.Column('gender', sa.String(), nullable=True),
     sa.Column('club', sa.String(), nullable=True),
-    sa.Column('bank_account', sa.String(), nullable=True),
-    sa.Column('bank_name', sa.String(), nullable=True),
-    sa.Column('ifsc', sa.String(), nullable=True),
-    sa.Column('bank_proof', sa.String(), nullable=True),
     sa.Column('profile_image', sa.String(), nullable=True),
-    sa.Column('nominee_name', sa.String(), nullable=False),
-    sa.Column('nominee_relation', sa.String(), nullable=True),
-    sa.Column('nominee_gender', sa.String(), nullable=True),
-    sa.Column('nominee_dob', sa.Date(), nullable=True),
-    sa.Column('nominee_address', sa.String(), nullable=True),
-    sa.Column('nominee_aadhar', sa.String(), nullable=False),
-    sa.Column('nominee_mobile', sa.String(), nullable=False),
     sa.Column('placement_parent', sa.String(), nullable=True),
     sa.Column('role', sa.String(), nullable=True),
     sa.Column('current_rank_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['current_rank_id'], ['rank_settings.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('aadhar_no')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_index(op.f('ix_users_user_id'), 'users', ['user_id'], unique=True)
@@ -216,6 +203,22 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_payout_history_id'), 'payout_history', ['id'], unique=False)
+    op.create_table('support_tickets',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('ticket_number', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('subject', sa.String(), nullable=False),
+    sa.Column('message', sa.Text(), nullable=False),
+    sa.Column('attachment', sa.String(), nullable=True),
+    sa.Column('status', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_support_tickets_id'), 'support_tickets', ['id'], unique=False)
+    op.create_index(op.f('ix_support_tickets_ticket_number'), 'support_tickets', ['ticket_number'], unique=True)
+    op.create_index(op.f('ix_support_tickets_user_id'), 'support_tickets', ['user_id'], unique=False)
     op.create_table('user_activity_history',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -227,6 +230,49 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_user_activity_history_id'), 'user_activity_history', ['id'], unique=False)
+    op.create_table('user_bank_details',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('bank_account', sa.String(), nullable=True),
+    sa.Column('bank_name', sa.String(), nullable=True),
+    sa.Column('ifsc', sa.String(), nullable=True),
+    sa.Column('bank_proof', sa.String(), nullable=True),
+    sa.Column('status', sa.String(), nullable=False),
+    sa.Column('rejection_reason', sa.String(), nullable=True),
+    sa.Column('nominee_name', sa.String(), nullable=True),
+    sa.Column('nominee_relation', sa.String(), nullable=True),
+    sa.Column('nominee_gender', sa.String(), nullable=True),
+    sa.Column('nominee_dob', sa.Date(), nullable=True),
+    sa.Column('nominee_address', sa.String(), nullable=True),
+    sa.Column('nominee_aadhar', sa.String(), nullable=True),
+    sa.Column('nominee_mobile', sa.String(), nullable=True),
+    sa.Column('nominee_aadhar_front', sa.String(), nullable=True),
+    sa.Column('nominee_aadhar_back', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_user_bank_details_id'), 'user_bank_details', ['id'], unique=False)
+    op.create_index(op.f('ix_user_bank_details_user_id'), 'user_bank_details', ['user_id'], unique=True)
+    op.create_table('user_kyc',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('aadhar_no', sa.String(), nullable=False),
+    sa.Column('pan_no', sa.String(), nullable=True),
+    sa.Column('aadhar_front', sa.String(), nullable=True),
+    sa.Column('aadhar_back', sa.String(), nullable=True),
+    sa.Column('pan_image', sa.String(), nullable=True),
+    sa.Column('status', sa.String(), nullable=False),
+    sa.Column('rejection_reason', sa.Text(), nullable=True),
+    sa.Column('uploaded_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('aadhar_no')
+    )
+    op.create_index(op.f('ix_user_kyc_id'), 'user_kyc', ['id'], unique=False)
+    op.create_index(op.f('ix_user_kyc_user_id'), 'user_kyc', ['user_id'], unique=True)
     op.create_table('user_rank_history',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -341,6 +387,21 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_return_history_id'), 'return_history', ['id'], unique=False)
+    op.create_table('support_ticket_messages',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('ticket_id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('message', sa.Text(), nullable=False),
+    sa.Column('attachment', sa.String(), nullable=True),
+    sa.Column('sender_type', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['ticket_id'], ['support_tickets.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_support_ticket_messages_id'), 'support_ticket_messages', ['id'], unique=False)
+    op.create_index(op.f('ix_support_ticket_messages_ticket_id'), 'support_ticket_messages', ['ticket_id'], unique=False)
+    op.create_index(op.f('ix_support_ticket_messages_user_id'), 'support_ticket_messages', ['user_id'], unique=False)
     op.create_table('wallet_transactions',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('wallet_id', sa.Integer(), nullable=False),
@@ -363,6 +424,10 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index(op.f('ix_wallet_transactions_id'), table_name='wallet_transactions')
     op.drop_table('wallet_transactions')
+    op.drop_index(op.f('ix_support_ticket_messages_user_id'), table_name='support_ticket_messages')
+    op.drop_index(op.f('ix_support_ticket_messages_ticket_id'), table_name='support_ticket_messages')
+    op.drop_index(op.f('ix_support_ticket_messages_id'), table_name='support_ticket_messages')
+    op.drop_table('support_ticket_messages')
     op.drop_index(op.f('ix_return_history_id'), table_name='return_history')
     op.drop_table('return_history')
     op.drop_index(op.f('ix_referral_commissions_id'), table_name='referral_commissions')
@@ -377,8 +442,18 @@ def downgrade() -> None:
     op.drop_table('wallets')
     op.drop_index(op.f('ix_user_rank_history_id'), table_name='user_rank_history')
     op.drop_table('user_rank_history')
+    op.drop_index(op.f('ix_user_kyc_user_id'), table_name='user_kyc')
+    op.drop_index(op.f('ix_user_kyc_id'), table_name='user_kyc')
+    op.drop_table('user_kyc')
+    op.drop_index(op.f('ix_user_bank_details_user_id'), table_name='user_bank_details')
+    op.drop_index(op.f('ix_user_bank_details_id'), table_name='user_bank_details')
+    op.drop_table('user_bank_details')
     op.drop_index(op.f('ix_user_activity_history_id'), table_name='user_activity_history')
     op.drop_table('user_activity_history')
+    op.drop_index(op.f('ix_support_tickets_user_id'), table_name='support_tickets')
+    op.drop_index(op.f('ix_support_tickets_ticket_number'), table_name='support_tickets')
+    op.drop_index(op.f('ix_support_tickets_id'), table_name='support_tickets')
+    op.drop_table('support_tickets')
     op.drop_index(op.f('ix_payout_history_id'), table_name='payout_history')
     op.drop_table('payout_history')
     op.drop_index(op.f('ix_investments_id'), table_name='investments')

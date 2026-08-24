@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+
+    <title>{{ title }}</title>
+
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 0;
+            color: #222;
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .report-header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .report-header p {
+            margin: 5px 0;
+        }
+
+        .filters {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .filters table {
+            width: 100%;
+            border: none;
+        }
+
+        .filters td {
+            border: none;
+            padding: 3px;
+        }
+
+        table.report-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.report-table th,
+        table.report-table td {
+            border: 1px solid #999;
+            padding: 7px;
+            text-align: left;
+        }
+
+        table.report-table th {
+            font-weight: bold;
+        }
+
+        .text-right {
+            text-align: right !important;
+        }
+
+        .text-center {
+            text-align: center !important;
+        }
+
+        .total-row {
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 25px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+
+        .print-button {
+            margin-bottom: 15px;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <button
+        class="print-button no-print"
+        onclick="window.print()"
+    >
+        Print Report
+    </button>
+
+
+    <div class="report-header">
+
+        <h1>AurumFX</h1>
+
+        <h2>{{ title }}</h2>
+
+        <p>
+            Generated:
+            {{ generated_at.strftime("%d-%m-%Y %H:%M") }}
+        </p>
+
+    </div>
+
+
+    <div class="filters">
+
+        <table>
+
+            <tr>
+                <td>
+                    <strong>Start Date:</strong>
+                    {{ start_date or "All" }}
+                </td>
+
+                <td>
+                    <strong>End Date:</strong>
+                    {{ end_date or "All" }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <strong>Status:</strong>
+                    {{ status or "All" }}
+                </td>
+
+                <td>
+                    <strong>User ID:</strong>
+                    {{ user_id or "All" }}
+                </td>
+            </tr>
+
+        </table>
+
+    </div>
+
+
+    <table class="report-table">
+
+        <thead>
+
+            <tr>
+                <th>#</th>
+                <th>User ID</th>
+                <th>User Name</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th class="text-right">
+                    Amount
+                </th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for row in report_data %}
+
+            <tr>
+
+                <td>
+                    {{ loop.index }}
+                </td>
+
+                <td>
+                    {{ row.user_id }}
+                </td>
+
+                <td>
+                    {{ row.user_name }}
+                </td>
+
+                <td>
+                    {{ row.date }}
+                </td>
+
+                <td>
+                    {{ row.status }}
+                </td>
+
+                <td class="text-right">
+                    ₹{{ "%.2f"|format(row.amount) }}
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+
+    <div class="footer">
+
+        AurumFX — Admin Report
+
+    </div>
+
+</body>
+</html>

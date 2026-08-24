@@ -1,27 +1,25 @@
-# app/routers/admin_bank_details.py
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_admin
-from app.models import User, UserBankDetails
+from app.models import User, UserKYC
 from app.utils.spaces import generate_presigned_url
-from app.schemas import BankStatusUpdateRequest
+from app.schemas import KYCStatusUpdateRequest
 
 
 router = APIRouter(
     prefix="/api/admin/members",
-    tags=["Admin - Member Bank Details"]
+    tags=["Admin - Member KYC"]
 )
 
 
 # ==========================================================
-# GET USER BANK + NOMINEE DETAILS
+# GET USER KYC
 # ==========================================================
 
-@router.get("/{user_id}/bank-details")
-def get_user_bank_details(
+@router.get("/{user_id}/kyc")
+def get_user_kyc(
     user_id: str,
     db: Session = Depends(get_db),
     admin=Depends(get_current_admin),
@@ -32,7 +30,9 @@ def get_user_bank_details(
 
     user = (
         db.query(User)
-        .filter(User.user_id == user_id)
+        .filter(
+            User.user_id == user_id
+        )
         .first()
     )
 
@@ -43,70 +43,64 @@ def get_user_bank_details(
         )
 
     # ------------------------------------------------------
-    # Find Bank Details
+    # Find KYC
     # ------------------------------------------------------
 
-    bank_details = (
-        db.query(UserBankDetails)
+    kyc = (
+        db.query(UserKYC)
         .filter(
-            UserBankDetails.user_id == user.id
+            UserKYC.user_id == user.id
         )
         .first()
     )
 
-    if not bank_details:
-        return {
-            "user_id": user.user_id,
-            "fullname": (
-                f"{user.first_name} "
-                f"{user.last_name or ''}"
-            ).strip(),
-
-            "bank_details": None,
-            "nominee_details": None,
-        }
+    if not kyc:
+        raise HTTPException(
+            status_code=404,
+            detail="KYC details not found"
+        )
 
     # ======================================================
-    # BANK PROOF URL
+    # GENERATE AADHAAR FRONT URL
     # ======================================================
 
-    bank_proof_url = None
+    aadhar_front_url = None
 
-    if bank_details.bank_proof:
+    if kyc.aadhar_front:
         try:
-            bank_proof_url = generate_presigned_url(
-                bank_details.bank_proof
+            aadhar_front_url = generate_presigned_url(
+                kyc.aadhar_front
             )
         except Exception:
-            bank_proof_url = None
+            aadhar_front_url = None
 
     # ======================================================
-    # NOMINEE AADHAAR FRONT URL
+    # GENERATE AADHAAR BACK URL
     # ======================================================
 
-    nominee_aadhar_front_url = None
+    aadhar_back_url = None
 
-    if bank_details.nominee_aadhar_front:
+    if kyc.aadhar_back:
         try:
-            nominee_aadhar_front_url = generate_presigned_url(
-                bank_details.nominee_aadhar_front
+            aadhar_back_url = generate_presigned_url(
+                kyc.aadhar_back
             )
         except Exception:
-            nominee_aadhar_front_url = None
+            aadhar_back_url = None
 
     # ======================================================
-    # NOMINEE AADHAAR BACK URL
+    # GENERATE PAN IMAGE URL
     # ======================================================
 
-    nominee_aadhar_back_url = None
+    pan_image_url = None
 
-    if bank_details.nominee_aadhar_back:
+    if kyc.pan_image:
         try:
-            nominee_aadhar_back_url = generate_presigned_url(
-                bank_details.nominee_aadhar_back
+            pan_image_url = generate_presigned_url(
+                kyc.pan_image
             )
         except Exception:
-            nominee_aadhar_back_url = None
+            pan_image_url = None
 
     # ======================================================
     # RESPONSE
@@ -125,73 +119,43 @@ def get_user_bank_details(
         ).strip(),
 
         # --------------------------------------------------
-        # Bank Details
+        # KYC
         # --------------------------------------------------
 
-        "bank_details": {
-            "bank_account": bank_details.bank_account,
-            "bank_name": bank_details.bank_name,
-            "ifsc": bank_details.ifsc,
-            "bank_proof": bank_proof_url,
+        "kyc": {
+            "id": kyc.id,
 
-            "status": bank_details.status,
+            "aadhar_no": kyc.aadhar_no,
+
+            "pan_no": kyc.pan_no,
+
+            "aadhar_front": aadhar_front_url,
+
+            "aadhar_back": aadhar_back_url,
+
+            "pan_image": pan_image_url,
+
+            "status": kyc.status,
+
             "rejection_reason": (
-                bank_details.rejection_reason
-            ),
-        },
-
-        # --------------------------------------------------
-        # Nominee Details
-        # --------------------------------------------------
-
-        "nominee_details": {
-            "nominee_name": (
-                bank_details.nominee_name
+                kyc.rejection_reason
             ),
 
-            "nominee_relation": (
-                bank_details.nominee_relation
-            ),
+            "uploaded_at": kyc.uploaded_at,
 
-            "nominee_gender": (
-                bank_details.nominee_gender
-            ),
-
-            "nominee_dob": (
-                bank_details.nominee_dob
-            ),
-
-            "nominee_address": (
-                bank_details.nominee_address
-            ),
-
-            "nominee_aadhar": (
-                bank_details.nominee_aadhar
-            ),
-
-            "nominee_mobile": (
-                bank_details.nominee_mobile
-            ),
-
-            "nominee_aadhar_front": (
-                nominee_aadhar_front_url
-            ),
-
-            "nominee_aadhar_back": (
-                nominee_aadhar_back_url
-            ),
-        },
+            "updated_at": kyc.updated_at,
+        }
     }
 
 
 # ==========================================================
-# UPDATE BANK STATUS
+# APPROVE / REJECT KYC
 # ==========================================================
 
-@router.patch("/{user_id}/bank-status")
-def update_bank_status(
+@router.patch("/{user_id}/kyc-status")
+def update_kyc_status(
     user_id: str,
-    data: BankStatusUpdateRequest,
+    data: KYCStatusUpdateRequest,
     db: Session = Depends(get_db),
     admin=Depends(get_current_admin),
 ):
@@ -201,7 +165,9 @@ def update_bank_status(
 
     user = (
         db.query(User)
-        .filter(User.user_id == user_id)
+        .filter(
+            User.user_id == user_id
+        )
         .first()
     )
 
@@ -212,25 +178,25 @@ def update_bank_status(
         )
 
     # ------------------------------------------------------
-    # Find Bank Details
+    # Find KYC
     # ------------------------------------------------------
 
-    bank_details = (
-        db.query(UserBankDetails)
+    kyc = (
+        db.query(UserKYC)
         .filter(
-            UserBankDetails.user_id == user.id
+            UserKYC.user_id == user.id
         )
         .first()
     )
 
-    if not bank_details:
+    if not kyc:
         raise HTTPException(
             status_code=404,
-            detail="Bank details not found"
+            detail="KYC details not found"
         )
 
     # ------------------------------------------------------
-    # Normalize Status
+    # Normalize status
     # ------------------------------------------------------
 
     status_value = data.status.strip().upper()
@@ -253,9 +219,9 @@ def update_bank_status(
                 detail="Rejection reason is required"
             )
 
-        bank_details.status = "REJECTED"
+        kyc.status = "REJECTED"
 
-        bank_details.rejection_reason = (
+        kyc.rejection_reason = (
             data.rejection_reason.strip()
         )
 
@@ -265,10 +231,10 @@ def update_bank_status(
 
     elif status_value == "APPROVED":
 
-        bank_details.status = "APPROVED"
+        kyc.status = "APPROVED"
 
-        # Clear previous rejection reason
-        bank_details.rejection_reason = None
+        # Clear old rejection reason
+        kyc.rejection_reason = None
 
     # ======================================================
     # INVALID STATUS
@@ -289,7 +255,7 @@ def update_bank_status(
     # ------------------------------------------------------
 
     db.commit()
-    db.refresh(bank_details)
+    db.refresh(kyc)
 
     # ------------------------------------------------------
     # Response
@@ -297,18 +263,18 @@ def update_bank_status(
 
     return {
         "message": (
-            "Bank details approved"
+            "KYC approved"
             if status_value == "APPROVED"
-            else "Bank details rejected"
+            else "KYC rejected"
         ),
 
         "user_id": user.user_id,
 
-        "bank_status": (
-            bank_details.status
-        ),
+        "kyc_id": kyc.id,
+
+        "status": kyc.status,
 
         "rejection_reason": (
-            bank_details.rejection_reason
+            kyc.rejection_reason
         ),
     }

@@ -1,0 +1,43 @@
+{% block summary %}
+
+<div class="summary-grid">
+
+    <div class="summary-box">
+        <div class="summary-label">
+            Total Records
+        </div>
+
+        <div class="summary-value">
+            {{ summary.total_records or 0 }}
+        </div>
+    </div>
+
+
+    <div class="summary-box">
+        <div class="summary-label">
+            Total Investment
+        </div>
+
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(
+                summary.total_investment_amount or 0
+            ) }}
+        </div>
+    </div>
+
+
+    <div class="summary-box">
+        <div class="summary-label">
+            Total Commission
+        </div>
+
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(
+                summary.total_commission or 0
+            ) }}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

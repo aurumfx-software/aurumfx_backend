@@ -22,6 +22,7 @@ from app.routers import admin_referral_commission_settings
 from app.routers.admin_payout import router as admin_payout_router
 from app.routers.admin_members import router as admin_members_router
 from app.routers.admin_bank_details import router as admin_bank_details_router
+from app.routers.admin_kyc import router as admin_kyc_router
 from app.routers.admin_enrollers import router as admin_enrollers_router
 from app.routers.enroller import router as enroller_router
 from app.routers import genealogy
@@ -31,7 +32,12 @@ from app.routers import user_kyc
 from app.routers import user_payout_history
 from app.routers.help_center import router as help_center_router
 from app.routers.admin_help_center import router as admin_help_center_router
-
+from app.routers.admin_return_date import router as admin_return_date_router
+from app.routers.admin_investment_report import (router as admin_investment_report_router)
+from app.routers.admin_payout_report import (router as admin_payout_report_router)
+from app.routers.admin_level_income_report import (router as admin_level_income_report_router)
+from app.routers.admin_referral_income_report import (router as admin_referral_income_report_router)
+from app.routers.admin_rank_income_report import (router as admin_rank_income_report_router)
 
 
 
@@ -93,6 +99,7 @@ app.include_router(admin_referral_commission_settings.router)
 app.include_router(admin_payout_router)
 app.include_router(admin_members_router)
 app.include_router(admin_bank_details_router)
+app.include_router(admin_kyc_router)
 app.include_router(admin_enrollers_router)
 app.include_router(enroller_router)
 app.include_router(genealogy.router)
@@ -102,8 +109,12 @@ app.include_router(user_kyc.router)
 app.include_router(user_payout_history.router)
 app.include_router(help_center_router)
 app.include_router(admin_help_center_router)
-
-
+app.include_router(admin_return_date_router)
+app.include_router(admin_investment_report_router)
+app.include_router(admin_payout_report_router)
+app.include_router(admin_level_income_report_router)
+app.include_router(admin_referral_income_report_router)
+app.include_router(admin_rank_income_report_router)
 
 
 

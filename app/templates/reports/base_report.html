@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% block title %}
+        AurumFX Report
+        {% endblock %}
+    </title>
+
+
+    <style>
+
+        /* =====================================================
+           A4 PAGE
+        ===================================================== */
+
+        @page {
+
+            size: A4 portrait;
+
+            margin: 12mm;
+
+        }
+
+
+        /* =====================================================
+           GLOBAL
+        ===================================================== */
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        html,
+        body {
+
+            margin: 0;
+
+            padding: 0;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            font-size: 10px;
+
+            color: #222;
+
+            background: #fff;
+
+        }
+
+
+        body {
+
+            width: 100%;
+
+        }
+
+
+        /* =====================================================
+           REPORT CONTAINER
+        ===================================================== */
+
+        .report-container {
+
+            width: 100%;
+
+            max-width: 210mm;
+
+            margin: 0 auto;
+
+        }
+
+
+        /* =====================================================
+           HEADER
+        ===================================================== */
+
+        .report-header {
+
+            width: 100%;
+
+            border-bottom: 2px solid #222;
+
+            padding-bottom: 10px;
+
+            margin-bottom: 12px;
+
+        }
+
+
+        .company-name {
+
+            font-size: 22px;
+
+            font-weight: bold;
+
+            text-align: center;
+
+            margin-bottom: 3px;
+
+        }
+
+
+        .company-subtitle {
+
+            text-align: center;
+
+            font-size: 9px;
+
+            color: #555;
+
+            margin-bottom: 8px;
+
+        }
+
+
+        .report-title {
+
+            text-align: center;
+
+            font-size: 17px;
+
+            font-weight: bold;
+
+            margin-top: 8px;
+
+        }
+
+
+        /* =====================================================
+           FILTER INFORMATION
+        ===================================================== */
+
+        .filter-section {
+
+            border: 1px solid #aaa;
+
+            padding: 7px;
+
+            margin-bottom: 12px;
+
+            background: #fafafa;
+
+        }
+
+
+        .filter-table {
+
+            width: 100%;
+
+            border-collapse: collapse;
+
+        }
+
+
+        .filter-table td {
+
+            padding: 3px 6px;
+
+            border: none;
+
+            font-size: 9px;
+
+        }
+
+
+        .filter-label {
+
+            font-weight: bold;
+
+        }
+
+
+        /* =====================================================
+           SUMMARY
+        ===================================================== */
+
+        .summary-grid {
+
+            display: table;
+
+            width: 100%;
+
+            table-layout: fixed;
+
+            margin-bottom: 15px;
+
+        }
+
+
+        .summary-row {
+
+            display: table-row;
+
+        }
+
+
+        .summary-box {
+
+            display: table-cell;
+
+            border: 1px solid #aaa;
+
+            padding: 8px;
+
+            vertical-align: middle;
+
+        }
+
+
+        .summary-box + .summary-box {
+
+            border-left: none;
+
+        }
+
+
+        .summary-label {
+
+            font-size: 8px;
+
+            color: #666;
+
+            margin-bottom: 4px;
+
+        }
+
+
+        .summary-value {
+
+            font-size: 13px;
+
+            font-weight: bold;
+
+        }
+
+
+        /* =====================================================
+           TABLE
+        ===================================================== */
+
+        .report-table {
+
+            width: 100%;
+
+            border-collapse: collapse;
+
+            table-layout: auto;
+
+        }
+
+
+        .report-table th {
+
+            border: 1px solid #555;
+
+            background: #eeeeee;
+
+            font-size: 9px;
+
+            font-weight: bold;
+
+            padding: 6px 5px;
+
+            text-align: left;
+
+            vertical-align: middle;
+
+        }
+
+
+        .report-table td {
+
+            border: 1px solid #999;
+
+            font-size: 9px;
+
+            padding: 5px;
+
+            vertical-align: middle;
+
+        }
+
+
+        .report-table th.text-center,
+        .report-table td.text-center {
+
+            text-align: center;
+
+        }
+
+
+        .report-table th.text-right,
+        .report-table td.text-right {
+
+            text-align: right;
+
+        }
+
+
+        .report-table tbody tr:nth-child(even) {
+
+            background: #fafafa;
+
+        }
+
+
+        /* =====================================================
+           STATUS
+        ===================================================== */
+
+        .status {
+
+            font-weight: bold;
+
+        }
+
+
+        .status-paid {
+
+            color: #000;
+
+        }
+
+
+        .status-pending {
+
+            color: #555;
+
+        }
+
+
+        .status-approved {
+
+            font-weight: bold;
+
+        }
+
+
+        .status-rejected {
+
+            font-weight: bold;
+
+        }
+
+
+        /* =====================================================
+           TOTAL ROW
+        ===================================================== */
+
+        .total-row td {
+
+            font-weight: bold;
+
+            background: #eeeeee;
+
+            border-top: 2px solid #555;
+
+        }
+
+
+        /* =====================================================
+           FOOTER
+        ===================================================== */
+
+        .report-footer {
+
+            margin-top: 15px;
+
+            border-top: 1px solid #aaa;
+
+            padding-top: 7px;
+
+            font-size: 8px;
+
+            color: #666;
+
+        }
+
+
+        .footer-left {
+
+            float: left;
+
+        }
+
+
+        .footer-right {
+
+            float: right;
+
+        }
+
+
+        .clearfix::after {
+
+            content: "";
+
+            display: table;
+
+            clear: both;
+
+        }
+
+
+        /* =====================================================
+           PRINT BUTTON
+        ===================================================== */
+
+        .print-section {
+
+            margin-top: 20px;
+
+            text-align: center;
+
+        }
+
+
+        .print-button {
+
+            padding: 8px 18px;
+
+            font-size: 12px;
+
+            cursor: pointer;
+
+            border: 1px solid #333;
+
+            background: #fff;
+
+        }
+
+
+        /* =====================================================
+           PAGE BREAK
+        ===================================================== */
+
+        .page-break {
+
+            page-break-before: always;
+
+        }
+
+
+        tr {
+
+            page-break-inside: avoid;
+
+        }
+
+
+        thead {
+
+            display: table-header-group;
+
+        }
+
+
+        /* =====================================================
+           PRINT MODE
+        ===================================================== */
+
+        @media print {
+
+            .no-print {
+
+                display: none !important;
+
+            }
+
+
+            body {
+
+                margin: 0;
+
+                padding: 0;
+
+            }
+
+
+            .report-container {
+
+                width: 100%;
+
+                max-width: none;
+
+            }
+
+
+            .report-table {
+
+                page-break-inside: auto;
+
+            }
+
+
+            .report-table tr {
+
+                page-break-inside: avoid;
+
+                page-break-after: auto;
+
+            }
+
+
+            thead {
+
+                display: table-header-group;
+
+            }
+
+
+            tfoot {
+
+                display: table-footer-group;
+
+            }
+
+        }
+
+    </style>
+
+
+    {% block extra_css %}
+    {% endblock %}
+
+</head>
+
+
+<body>
+
+
+<div class="report-container">
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <div class="report-header">
+
+        <div class="company-name">
+
+            AurumFX
+
+        </div>
+
+
+        <div class="company-subtitle">
+
+            Investment & Financial Management System
+
+        </div>
+
+
+        <div class="report-title">
+
+            {% block report_title %}
+            Report
+            {% endblock %}
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FILTER INFORMATION
+    ====================================================== -->
+
+    {% block filters %}
+
+    {% if start_date or end_date or user_id or status %}
+
+    <div class="filter-section">
+
+        <table class="filter-table">
+
+            <tr>
+
+                {% if start_date %}
+
+                <td>
+
+                    <span class="filter-label">
+                        From Date:
+                    </span>
+
+                    {{ start_date }}
+
+                </td>
+
+                {% endif %}
+
+
+                {% if end_date %}
+
+                <td>
+
+                    <span class="filter-label">
+                        To Date:
+                    </span>
+
+                    {{ end_date }}
+
+                </td>
+
+                {% endif %}
+
+
+                {% if user_id %}
+
+                <td>
+
+                    <span class="filter-label">
+                        User ID:
+                    </span>
+
+                    {{ user_id }}
+
+                </td>
+
+                {% endif %}
+
+
+                {% if status %}
+
+                <td>
+
+                    <span class="filter-label">
+                        Status:
+                    </span>
+
+                    {{ status }}
+
+                </td>
+
+                {% endif %}
+
+            </tr>
+
+        </table>
+
+    </div>
+
+    {% endif %}
+
+    {% endblock %}
+
+
+    <!-- =====================================================
+         SUMMARY
+    ====================================================== -->
+
+    {% block summary %}
+
+    {% endblock %}
+
+
+    <!-- =====================================================
+         REPORT CONTENT
+    ====================================================== -->
+
+    {% block content %}
+
+    {% endblock %}
+
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
+    <div class="report-footer clearfix">
+
+        <div class="footer-left">
+
+            Generated by AurumFX Admin
+
+        </div>
+
+
+        <div class="footer-right">
+
+            Generated:
+            {{ generated_at }}
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         PRINT BUTTON
+    ====================================================== -->
+
+    <div class="print-section no-print">
+
+        <button
+            class="print-button"
+            onclick="window.print()"
+        >
+
+            Print Report
+
+        </button>
+
+    </div>
+
+
+</div>
+
+
+</body>
+
+</html>

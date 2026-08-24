@@ -1,0 +1,195 @@
+{% extends "reports/base_report.html" %}
+
+
+{% block title %}
+
+Investment Report - AurumFX
+
+{% endblock %}
+
+
+{% block report_title %}
+
+Investment Report
+
+{% endblock %}
+
+
+{% block summary %}
+
+<div class="summary-grid">
+
+    <div class="summary-row">
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL INVESTMENTS
+            </div>
+
+            <div class="summary-value">
+                {{ summary.total_records }}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL INVESTMENT
+            </div>
+
+            <div class="summary-value">
+                ₹ {{ "%.2f"|format(summary.total_amount) }}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                APPROVED
+            </div>
+
+            <div class="summary-value">
+                {{ summary.approved_count }}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                PENDING
+            </div>
+
+            <div class="summary-value">
+                {{ summary.pending_count }}
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block content %}
+
+<table class="report-table">
+
+    <thead>
+
+        <tr>
+
+            <th>#</th>
+
+            <th>
+                Investment ID
+            </th>
+
+            <th>
+                User ID
+            </th>
+
+            <th>
+                User Name
+            </th>
+
+            <th>
+                Plan
+            </th>
+
+            <th>
+                Amount
+            </th>
+
+            <th>
+                Lots
+            </th>
+
+            <th>
+                Status
+            </th>
+
+            <th>
+                Date
+            </th>
+
+        </tr>
+
+    </thead>
+
+
+    <tbody>
+
+        {% for item in data %}
+
+        <tr>
+
+            <td class="text-center">
+                {{ loop.index }}
+            </td>
+
+            <td>
+                {{ item.investment_id }}
+            </td>
+
+            <td>
+                {{ item.user_id }}
+            </td>
+
+            <td>
+                {{ item.user_name }}
+            </td>
+
+            <td>
+                {{ item.plan_name }}
+            </td>
+
+            <td class="text-right">
+                ₹ {{ "%.2f"|format(item.amount) }}
+            </td>
+
+            <td class="text-center">
+                {{ item.lots }}
+            </td>
+
+            <td class="text-center">
+                {{ item.investment_status }}
+            </td>
+
+            <td>
+                {{ item.investment_date }}
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+
+        <tr class="total-row">
+
+            <td colspan="5">
+                TOTAL
+            </td>
+
+            <td class="text-right">
+                ₹ {{ "%.2f"|format(summary.total_amount) }}
+            </td>
+
+            <td colspan="3">
+            </td>
+
+        </tr>
+
+    </tbody>
+
+</table>
+
+{% endblock %}

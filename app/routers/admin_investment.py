@@ -8,6 +8,9 @@ from app.utils.referral_commission import create_referral_commission
 from app.utils.binary_income import propagate_business
 from app.services.level_commission_service import calculate_level_commission
 from app.services.rank_service import check_and_assign_rank
+from app.services.spaces_service import (
+    upload_investment_payment_proof, get_presigned_url
+)
 from app.models import (
     User,
     Investment,
@@ -106,7 +109,10 @@ def all_requests(
                 lots=inv.lots,
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
-                investment_date=inv.investment_date
+                investment_date=inv.investment_date,
+                payment_proof=get_presigned_url(inv.payment_proof),
+                
+
             )
         )
 
@@ -204,7 +210,9 @@ def pending_investments(
                 lots=inv.lots,
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
-                investment_date=inv.investment_date
+                investment_date=inv.investment_date,
+                payment_proof=get_presigned_url(inv.payment_proof),
+
             )
         )
 
@@ -309,7 +317,9 @@ def active_investments(
                 lots=inv.lots,
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
-                investment_date=inv.investment_date
+                investment_date=inv.investment_date,
+                payment_proof=get_presigned_url(inv.payment_proof),
+
             )
         )
 
@@ -367,7 +377,9 @@ def today_returns(
                 lots=inv.lots,
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
-                investment_date=inv.investment_date
+                investment_date=inv.investment_date,
+                payment_proof=get_presigned_url(inv.payment_proof),
+
             )
         )
 
@@ -494,7 +506,9 @@ def investment_details(
         lots=investment.lots,
         investment_status=investment.investment_status,
         approval_status=investment.approval_status,
-        investment_date=investment.investment_date
+        investment_date=investment.investment_date,
+                payment_proof=get_presigned_url(inv.payment_proof),
+
     )
 
 

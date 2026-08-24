@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, date
 from app.database import get_db
-from app.models import User, UserActivityHistory
+from app.models import User, UserActivityHistory, UserKYC, UserBankDetails
 from app.schemas import RegisterUser, LoginUser, ActivityHistoryResponse, UpdateProfile, ChangePassword
 from app.utils.user_id import generate_user_id
 from app.utils.jwt import create_access_token
@@ -11,8 +11,6 @@ from app.core.security import get_current_user
 from app.services.binary_tree import  find_placement_parent
 from app.services.activity_service import get_activity_history
 from app.services.spaces_service import upload_profile_image, upload_bank_proof, get_presigned_url
-
-
 
 router = APIRouter(
     prefix="/auth",
@@ -52,48 +50,68 @@ def check_enroller(enroller_id: str, db: Session = Depends(get_db)):
 # Register
 # ----------------------------
 @router.post("/register")
-def register(user: RegisterUser, db: Session = Depends(get_db)):
+def register(
+    user: RegisterUser,
+    db: Session = Depends(get_db)
+):
 
-    # Password Match
+    # ==========================================================
+    # 1. PASSWORD MATCH
+    # ==========================================================
+
     if user.password != user.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password mismatch"
         )
-    
-    # Email already exists
-    # existing_email = db.query(User).filter(
-    #     User.email == user.email
-    # ).first()
 
-    # if existing_email:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Email already registered"
-    #     )
+    # ==========================================================
+    # 2. CHECK AADHAAR IN KYC TABLE
+    # ==========================================================
 
-    # Aadhaar already exists
-    if db.query(User).filter(User.aadhar_no == user.aadhar_no).first():
+    existing_aadhar = (
+        db.query(UserKYC)
+        .filter(UserKYC.aadhar_no == user.aadhar_no)
+        .first()
+    )
+
+    if existing_aadhar:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Aadhar number already registered"
         )
 
-    # # PAN already exists
-    # if db.query(User).filter(User.pan == user.pan).first():
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail="PAN already registered"
-    #     )
-    # Validate Enroller ID
-    placement_parent = None
+    # ==========================================================
+    # 3. CHECK PAN IN KYC TABLE
+    # ==========================================================
 
-    # Validate Enroller ID
+    # if user.pan:
+
+    #     existing_pan = (
+    #         db.query(UserKYC)
+    #         .filter(UserKYC.pan_no == user.pan)
+    #         .first()
+    #     )
+
+    #     if existing_pan:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_400_BAD_REQUEST,
+    #             detail="PAN already registered"
+    #         )
+
+    # ==========================================================
+    # 4. VALIDATE ENROLLER
+    # ==========================================================
+
     if user.enroller_id:
 
-        enroller = db.query(User).filter(
-            User.user_id == user.enroller_id
-        ).first()
+        enroller = (
+            db.query(User)
+            .filter(
+                User.user_id == user.enroller_id
+            )
+            .first()
+        )
 
         if not enroller:
             raise HTTPException(
@@ -101,68 +119,141 @@ def register(user: RegisterUser, db: Session = Depends(get_db)):
                 detail="Invalid Enroller ID"
             )
 
-    # Find placement parent
-    # placement_parent = find_placement_parent(
-    #     db=db,
-    #     sponsor=enroller,
-    #     club=user.club
-    # )
-    # placement_parent = ""
+    # ==========================================================
+    # 5. GENERATE USER ID
+    # ==========================================================
 
-        # if enroller.role != "ADMIN":
-        #     raise HTTPException(
-        #         status_code=status.HTTP_400_BAD_REQUEST,
-        #         detail="Only ADMIN users can enroll new users"
-        #     )
-
-    # Generate User ID
-    
     user_id = generate_user_id(db)
+
     print("Generated User ID:", user_id)
 
-    # Create User
+    # ==========================================================
+    # 6. CREATE USER
+    # ==========================================================
+
     db_user = User(
         user_id=user_id,
-        email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        password=pwd_context.hash(user.password),
-        enroller_id=user.enroller_id,
-        # placement_parent=placement_parent.user_id if placement_parent else None,
-        date_of_birth=user.date_of_birth,
-        country=user.country,
-        city=user.city,
-        zip_code=user.zip_code,
-        mobile=user.mobile,
-        aadhar_no=user.aadhar_no,
-        pan=user.pan,
-        gender=user.gender,
-        # club=user.club,
-        # Bank Details
-        bank_account=user.bank_account,
-        bank_name=user.bank_name,
-        ifsc=user.ifsc,
 
-        # Nominee Details
-        nominee_name=user.nominee_name,
-        nominee_relation=user.nominee_relation,
-        nominee_gender=user.nominee_gender,
-        nominee_dob=user.nominee_dob,
-        nominee_address=user.nominee_address,
-        nominee_aadhar=user.nominee_aadhar,
-        nominee_mobile=user.nominee_mobile,
+        email=user.email,
+
+        first_name=user.first_name,
+
+        last_name=user.last_name,
+
+        password=pwd_context.hash(
+            user.password
+        ),
+
+        enroller_id=user.enroller_id,
+
+        date_of_birth=user.date_of_birth,
+
+        country=user.country,
+
+        city=user.city,
+
+        zip_code=user.zip_code,
+
+        mobile=user.mobile,
+
+        gender=user.gender,
+
         role="USER"
     )
 
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+
+    # Flush so db_user.id is generated
+    # before creating KYC and bank records.
+    db.flush()
+
+    # ==========================================================
+    # 7. CREATE KYC
+    # ==========================================================
+
+    db_kyc = UserKYC(
+        user_id=db_user.id,
+
+        aadhar_no=user.aadhar_no,
+
+        pan_no=user.pan,
+
+        status="PENDING"
+    )
+
+    db.add(db_kyc)
+
+    # ==========================================================
+    # 8. CREATE BANK + NOMINEE DETAILS
+    # ==========================================================
+
+    db_bank_details = UserBankDetails(
+        user_id=db_user.id,
+
+        # -------------------------
+        # Bank
+        # -------------------------
+
+        bank_account=user.bank_account,
+
+        bank_name=user.bank_name,
+
+        ifsc=user.ifsc,
+
+        status="PENDING",
+
+        # -------------------------
+        # Nominee
+        # -------------------------
+
+        nominee_name=user.nominee_name,
+
+        nominee_relation=user.nominee_relation,
+
+        nominee_gender=user.nominee_gender,
+
+        nominee_dob=user.nominee_dob,
+
+        nominee_address=user.nominee_address,
+
+        nominee_aadhar=user.nominee_aadhar,
+
+        nominee_mobile=user.nominee_mobile,
+
+        nominee_aadhar_front=None,
+
+        nominee_aadhar_back=None
+    )
+
+    db.add(db_bank_details)
+
+    # ==========================================================
+    # 9. COMMIT EVERYTHING
+    # ==========================================================
+
+    try:
+
+        db.commit()
+
+        db.refresh(db_user)
+
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+    # ==========================================================
+    # 10. RESPONSE
+    # ==========================================================
 
     return {
         "message": "Registration Successful",
         "user_id": db_user.user_id
     }
-
 
 # ----------------------------
 # Login
@@ -321,9 +412,9 @@ def profile(
 
         "date_of_birth": user.date_of_birth,
 
-        "aadhar_no": user.aadhar_no,
+        # "aadhar_no": user.aadhar_no,
 
-        "pan": user.pan,
+        # "pan": user.pan,
 
         "role": user.role
 
@@ -536,6 +627,8 @@ async def upload_profile_image_api(
         "profile_image": image_url
     }
 
+
+
 @router.put("/profile/bank-details")
 async def update_bank_details(
     # -----------------------------
@@ -571,11 +664,12 @@ async def update_bank_details(
     # Authentication
     # -----------------------------
     current_user: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    # --------------------------------
-    # Find logged-in user
-    # --------------------------------
+    # =================================
+    # 1. Find logged-in user
+    # =================================
+
     user = (
         db.query(User)
         .filter(User.user_id == current_user)
@@ -588,40 +682,56 @@ async def update_bank_details(
             detail="User not found"
         )
 
-    # --------------------------------
-    # Validate IFSC
-    # --------------------------------
-    ifsc = ifsc.strip().upper()
+    # =================================
+    # 2. Get existing bank details
+    # =================================
 
-    if len(ifsc) != 11:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid IFSC code"
+    bank_details = (
+        db.query(UserBankDetails)
+        .filter(
+            UserBankDetails.user_id == user.id
         )
+        .first()
+    )
 
     # =================================
-    # Allowed File Types
+    # 3. Validate IFSC
+    # =================================
+
+    # ifsc = ifsc.strip().upper()
+
+    # if len(ifsc) != 11:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Invalid IFSC code"
+    #     )
+
+    # =================================
+    # 4. Allowed File Types
     # =================================
 
     allowed_types = {
         "image/jpeg": ".jpg",
         "image/png": ".png",
-        "application/pdf": ".pdf"
+        "application/pdf": ".pdf",
     }
 
+    max_size = 5 * 1024 * 1024
+
     # =================================
-    # Validate Bank Proof
+    # 5. Validate Bank Proof
     # =================================
 
     if proof_document.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail="Only JPG, PNG and PDF bank proof documents are allowed"
+            detail=(
+                "Only JPG, PNG and PDF bank proof "
+                "documents are allowed"
+            )
         )
 
     bank_proof_content = await proof_document.read()
-
-    max_size = 5 * 1024 * 1024
 
     if len(bank_proof_content) > max_size:
         raise HTTPException(
@@ -630,7 +740,7 @@ async def update_bank_details(
         )
 
     # =================================
-    # Validate Nominee Aadhaar Front
+    # 6. Validate Nominee Aadhaar Front
     # =================================
 
     if nominee_aadhar_front.content_type not in allowed_types:
@@ -639,16 +749,21 @@ async def update_bank_details(
             detail="Nominee Aadhaar front must be JPG, PNG or PDF"
         )
 
-    nominee_front_content = await nominee_aadhar_front.read()
+    nominee_front_content = (
+        await nominee_aadhar_front.read()
+    )
 
     if len(nominee_front_content) > max_size:
         raise HTTPException(
             status_code=400,
-            detail="Nominee Aadhaar front must be less than 5 MB"
+            detail=(
+                "Nominee Aadhaar front must be "
+                "less than 5 MB"
+            )
         )
 
     # =================================
-    # Validate Nominee Aadhaar Back
+    # 7. Validate Nominee Aadhaar Back
     # =================================
 
     if nominee_aadhar_back.content_type not in allowed_types:
@@ -657,19 +772,26 @@ async def update_bank_details(
             detail="Nominee Aadhaar back must be JPG, PNG or PDF"
         )
 
-    nominee_back_content = await nominee_aadhar_back.read()
+    nominee_back_content = (
+        await nominee_aadhar_back.read()
+    )
 
     if len(nominee_back_content) > max_size:
         raise HTTPException(
             status_code=400,
-            detail="Nominee Aadhaar back must be less than 5 MB"
+            detail=(
+                "Nominee Aadhaar back must be "
+                "less than 5 MB"
+            )
         )
 
     # =================================
-    # Generate Extensions
+    # 8. Generate Extensions
     # =================================
 
-    bank_extension = allowed_types[proof_document.content_type]
+    bank_extension = allowed_types[
+        proof_document.content_type
+    ]
 
     nominee_front_extension = allowed_types[
         nominee_aadhar_front.content_type
@@ -680,7 +802,7 @@ async def update_bank_details(
     ]
 
     # =================================
-    # Generate Filenames
+    # 9. Generate Filenames
     # =================================
 
     bank_filename = (
@@ -698,115 +820,181 @@ async def update_bank_details(
     )
 
     # =================================
-    # Upload Bank Proof
+    # 10. Upload Bank Proof
     # =================================
 
     proof_key = upload_bank_proof(
         file_content=bank_proof_content,
         filename=bank_filename,
-        content_type=proof_document.content_type
+        content_type=proof_document.content_type,
     )
 
     # =================================
-    # Upload Nominee Aadhaar Front
+    # 11. Upload Nominee Aadhaar Front
     # =================================
 
     nominee_front_key = upload_bank_proof(
         file_content=nominee_front_content,
         filename=nominee_front_filename,
-        content_type=nominee_aadhar_front.content_type
+        content_type=nominee_aadhar_front.content_type,
     )
 
     # =================================
-    # Upload Nominee Aadhaar Back
+    # 12. Upload Nominee Aadhaar Back
     # =================================
 
     nominee_back_key = upload_bank_proof(
         file_content=nominee_back_content,
         filename=nominee_back_filename,
-        content_type=nominee_aadhar_back.content_type
+        content_type=nominee_aadhar_back.content_type,
     )
 
     # =================================
-    # Update Bank Details
+    # 13. Create or Update Bank Details
     # =================================
 
-    user.bank_account = bank_account.strip()
-    user.bank_name = bank_name.strip()
-    user.ifsc = ifsc
-    user.bank_proof = proof_key
+    if not bank_details:
+
+        bank_details = UserBankDetails(
+            user_id=user.id,
+            status="PENDING",
+        )
+
+        db.add(bank_details)
 
     # =================================
-    # Update Nominee Details
+    # 14. Update Bank Details
     # =================================
 
-    user.nominee_name = nominee_name.strip()
+    bank_details.bank_account = (
+        bank_account.strip()
+    )
 
-    user.nominee_relation = (
+    bank_details.bank_name = (
+        bank_name.strip()
+    )
+
+    bank_details.ifsc = ifsc
+
+    bank_details.bank_proof = proof_key
+
+    # =================================
+    # 15. Update Nominee Details
+    # =================================
+
+    bank_details.nominee_name = (
+        nominee_name.strip()
+    )
+
+    bank_details.nominee_relation = (
         nominee_relation.strip()
         if nominee_relation
         else None
     )
 
-    user.nominee_gender = (
+    bank_details.nominee_gender = (
         nominee_gender.strip()
         if nominee_gender
         else None
     )
 
-    user.nominee_dob = nominee_dob
+    bank_details.nominee_dob = nominee_dob
 
-    user.nominee_address = (
+    bank_details.nominee_address = (
         nominee_address.strip()
         if nominee_address
         else None
     )
 
-    user.nominee_aadhar = nominee_aadhar.strip()
-    user.nominee_mobile = nominee_mobile.strip()
+    bank_details.nominee_aadhar = (
+        nominee_aadhar.strip()
+    )
+
+    bank_details.nominee_mobile = (
+        nominee_mobile.strip()
+    )
 
     # =================================
-    # Save Nominee Aadhaar Documents
+    # 16. Save Nominee Aadhaar Documents
     # =================================
 
-    user.nominee_aadhar_front = nominee_front_key
-    user.nominee_aadhar_back = nominee_back_key
+    bank_details.nominee_aadhar_front = (
+        nominee_front_key
+    )
+
+    bank_details.nominee_aadhar_back = (
+        nominee_back_key
+    )
 
     # =================================
-    # Save
+    # 17. Reset Status
     # =================================
 
-    db.commit()
-    db.refresh(user)
+    bank_details.status = "PENDING"
+
+    bank_details.rejection_reason = None
+
+    # =================================
+    # 18. Save
+    # =================================
+
+    try:
+
+        db.commit()
+
+        db.refresh(bank_details)
+
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update bank details: {str(e)}"
+        )
+
+    # =================================
+    # 19. Response
+    # =================================
 
     return {
         "message": "Bank and nominee details updated successfully",
 
         "bank_details": {
-            "bank_account": user.bank_account,
-            "bank_name": user.bank_name,
-            "ifsc": user.ifsc,
-            "bank_proof": user.bank_proof
+            "id": bank_details.id,
+            "bank_account": bank_details.bank_account,
+            "bank_name": bank_details.bank_name,
+            "ifsc": bank_details.ifsc,
+            "bank_proof": bank_details.bank_proof,
+            "status": bank_details.status,
+            "rejection_reason": bank_details.rejection_reason,
         },
 
         "nominee_details": {
-            "nominee_name": user.nominee_name,
-            "nominee_relation": user.nominee_relation,
-            "nominee_gender": user.nominee_gender,
-            "nominee_dob": user.nominee_dob,
-            "nominee_address": user.nominee_address,
-            "nominee_aadhar": user.nominee_aadhar,
-            "nominee_mobile": user.nominee_mobile,
-            "nominee_aadhar_front": user.nominee_aadhar_front,
-            "nominee_aadhar_back": user.nominee_aadhar_back
-        }
+            "nominee_name": bank_details.nominee_name,
+            "nominee_relation": bank_details.nominee_relation,
+            "nominee_gender": bank_details.nominee_gender,
+            "nominee_dob": bank_details.nominee_dob,
+            "nominee_address": bank_details.nominee_address,
+            "nominee_aadhar": bank_details.nominee_aadhar,
+            "nominee_mobile": bank_details.nominee_mobile,
+            "nominee_aadhar_front": (
+                bank_details.nominee_aadhar_front
+            ),
+            "nominee_aadhar_back": (
+                bank_details.nominee_aadhar_back
+            ),
+        },
     }
-
 @router.get("/profile/bank-details")
 def get_bank_details(
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # =================================
+    # Find logged-in user
+    # =================================
+
     user = (
         db.query(User)
         .filter(User.user_id == current_user)
@@ -818,93 +1006,86 @@ def get_bank_details(
             status_code=404,
             detail="User not found"
         )
+
+    # =================================
+    # Get bank details
+    # =================================
+
+    bank_details = (
+        db.query(UserBankDetails)
+        .filter(
+            UserBankDetails.user_id == user.id
+        )
+        .first()
+    )
+
+    # =================================
+    # No bank details
+    # =================================
+
+    if not bank_details:
+        return {
+            "message": "Bank details not found",
+
+            "bank_details": None,
+
+            "nominee_details": None
+        }
+
+    # =================================
+    # Response
+    # =================================
 
     return {
         "message": "Bank details fetched successfully",
 
         "bank_details": {
-            "bank_account": user.bank_account,
-            "bank_name": user.bank_name,
-            "ifsc": user.ifsc,
-            "bank_proof": get_presigned_url(
-                user.bank_proof
+            "id": bank_details.id,
+            "bank_account": bank_details.bank_account,
+            "bank_name": bank_details.bank_name,
+            "ifsc": bank_details.ifsc,
+
+            "bank_proof": (
+                get_presigned_url(
+                    bank_details.bank_proof
+                )
+                if bank_details.bank_proof
+                else None
             ),
-            "bank_status": user.bank_status
+
+            "status": bank_details.status,
+
+            "rejection_reason": (
+                bank_details.rejection_reason
+            ),
         },
 
         "nominee_details": {
-            "nominee_name": user.nominee_name,
-            "nominee_relation": user.nominee_relation,
-            "nominee_gender": user.nominee_gender,
-            "nominee_dob": user.nominee_dob,
-            "nominee_address": user.nominee_address,
-            "nominee_aadhar": user.nominee_aadhar,
-            "nominee_mobile": user.nominee_mobile,
-            "nominee_aadhar_front": get_presigned_url(
-                user.nominee_aadhar_front
+            "nominee_name": bank_details.nominee_name,
+            "nominee_relation": bank_details.nominee_relation,
+            "nominee_gender": bank_details.nominee_gender,
+            "nominee_dob": bank_details.nominee_dob,
+            "nominee_address": bank_details.nominee_address,
+            "nominee_aadhar": bank_details.nominee_aadhar,
+            "nominee_mobile": bank_details.nominee_mobile,
+
+            "nominee_aadhar_front": (
+                get_presigned_url(
+                    bank_details.nominee_aadhar_front
+                )
+                if bank_details.nominee_aadhar_front
+                else None
             ),
-            "nominee_aadhar_back": get_presigned_url(
-                user.nominee_aadhar_back
-            )
+
+            "nominee_aadhar_back": (
+                get_presigned_url(
+                    bank_details.nominee_aadhar_back
+                )
+                if bank_details.nominee_aadhar_back
+                else None
+            ),
         }
     }
-@router.put("/change-password")
-def change_password(
-    password_data: ChangePassword,
-    current_user: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    # Find logged-in user
-    user = (
-        db.query(User)
-        .filter(User.user_id == current_user)
-        .first()
-    )
-
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
-
-    # Verify current password
-    if not pwd_context.verify(
-        password_data.current_password,
-        user.password
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Current password is incorrect"
-        )
-
-    # Check new password confirmation
-    if password_data.new_password != password_data.confirm_password:
-        raise HTTPException(
-            status_code=400,
-            detail="New password and confirm password do not match"
-        )
-
-    # Prevent same password
-    if pwd_context.verify(
-        password_data.new_password,
-        user.password
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="New password must be different from current password"
-        )
-
-    # Hash new password
-    user.password = pwd_context.hash(
-        password_data.new_password
-    )
-
-    db.commit()
-
-    return {
-        "message": "Password changed successfully"
-    }
-
 @router.get("/image")
 def get_profile_image(
     current_user: str = Depends(get_current_user),
