@@ -1,4 +1,5 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
@@ -54,9 +55,7 @@ def payout_report(
     if end_date:
         query = query.filter(
             PayoutHistory.paid_at < (
-                end_date.fromordinal(
-                    end_date.toordinal() + 1
-                )
+                end_date + timedelta(days=1)
             )
         )
 
@@ -78,6 +77,10 @@ def payout_report(
             User.user_id == user_id
         )
 
+    # ------------------------------------------------------
+    # RESULTS
+    # ------------------------------------------------------
+
     results = (
         query
         .order_by(
@@ -92,50 +95,62 @@ def payout_report(
 
     data = []
 
-    total_referral_income = 0
-    total_level_income = 0
-    total_rank_income = 0
-    total_income = 0
-    total_admin_fee = 0
-    total_net_payable = 0
+    total_referral_income = Decimal("0")
+    total_level_income = Decimal("0")
+    total_rank_income = Decimal("0")
+    total_income = Decimal("0")
+    total_admin_fee = Decimal("0")
+    total_net_payable = Decimal("0")
 
     for payout, user in results:
 
-        referral_income = float(
-            payout.referral_income or 0
+        referral_income = Decimal(
+            str(payout.referral_income or 0)
         )
 
-        level_income = float(
-            payout.level_income or 0
+        level_income = Decimal(
+            str(payout.level_income or 0)
         )
 
-        rank_income = float(
-            payout.rank_income or 0
+        rank_income = Decimal(
+            str(payout.rank_income or 0)
         )
 
-        total_payout_income = float(
-            payout.total_income or 0
+        payout_income = Decimal(
+            str(payout.total_income or 0)
         )
 
-        admin_fee = float(
-            payout.admin_fee or 0
+        admin_fee = Decimal(
+            str(payout.admin_fee or 0)
         )
 
-        net_payable = float(
-            payout.net_payable or 0
+        net_payable = Decimal(
+            str(payout.net_payable or 0)
         )
+
+        # --------------------------------------------------
+        # TOTALS
+        # --------------------------------------------------
 
         total_referral_income += referral_income
         total_level_income += level_income
         total_rank_income += rank_income
-        total_income += total_payout_income
+        total_income += payout_income
         total_admin_fee += admin_fee
         total_net_payable += net_payable
+
+        # --------------------------------------------------
+        # USER NAME
+        # --------------------------------------------------
 
         user_name = (
             f"{user.first_name} "
             f"{user.last_name or ''}"
         ).strip()
+
+        # --------------------------------------------------
+        # REPORT ROW
+        # --------------------------------------------------
 
         data.append({
             "id": payout.id,
@@ -150,10 +165,10 @@ def payout_report(
 
             "rank_income": rank_income,
 
-            "total_income": total_payout_income,
+            "total_income": payout_income,
 
-            "admin_fee_percentage": float(
-                payout.admin_fee_percentage or 0
+            "admin_fee_percentage": Decimal(
+                str(payout.admin_fee_percentage or 0)
             ),
 
             "admin_fee": admin_fee,
@@ -171,20 +186,36 @@ def payout_report(
             "created_at": payout.created_at,
         })
 
+    # ------------------------------------------------------
+    # RESPONSE
+    # ------------------------------------------------------
+
     return {
         "total_records": len(data),
 
-        "total_referral_income": total_referral_income,
+        "total_referral_income": float(
+            total_referral_income
+        ),
 
-        "total_level_income": total_level_income,
+        "total_level_income": float(
+            total_level_income
+        ),
 
-        "total_rank_income": total_rank_income,
+        "total_rank_income": float(
+            total_rank_income
+        ),
 
-        "total_income": total_income,
+        "total_income": float(
+            total_income
+        ),
 
-        "total_admin_fee": total_admin_fee,
+        "total_admin_fee": float(
+            total_admin_fee
+        ),
 
-        "total_net_payable": total_net_payable,
+        "total_net_payable": float(
+            total_net_payable
+        ),
 
         "data": data,
     }
@@ -194,8 +225,11 @@ def payout_report(
 # PRINT PAYOUT REPORT
 # ==========================================================
 
-@router.get("/print", response_class=HTMLResponse)
-def print_referral_income_report(
+@router.get(
+    "/print",
+    response_class=HTMLResponse
+)
+def print_payout_report(
     request: Request,
 
     start_date: date | None = Query(None),
@@ -207,157 +241,227 @@ def print_referral_income_report(
     admin=Depends(get_current_admin),
 ):
 
-    # ==================================================
+    # ======================================================
     # QUERY
-    # ==================================================
+    # ======================================================
 
     query = (
         db.query(
-            ReferralCommission,
+            PayoutHistory,
             User
         )
         .join(
             User,
-            ReferralCommission.enroller_id == User.id
+            PayoutHistory.user_id == User.id
         )
     )
 
-    # ==================================================
-    # FILTERS
-    # ==================================================
+    # ======================================================
+    # DATE FILTER
+    # ======================================================
 
     if start_date:
         query = query.filter(
-            ReferralCommission.created_at >= start_date
+            PayoutHistory.paid_at >= start_date
         )
 
     if end_date:
         query = query.filter(
-            ReferralCommission.created_at < end_date + timedelta(days=1)
+            PayoutHistory.paid_at < (
+                end_date + timedelta(days=1)
+            )
         )
+
+    # ======================================================
+    # STATUS FILTER
+    # ======================================================
 
     if status:
         query = query.filter(
-            ReferralCommission.status == status.upper()
+            PayoutHistory.status == status.upper()
         )
+
+    # ======================================================
+    # USER FILTER
+    # ======================================================
 
     if user_id:
         query = query.filter(
             User.user_id == user_id
         )
 
-    # ==================================================
+    # ======================================================
     # RESULTS
-    # ==================================================
+    # ======================================================
 
     results = (
         query
         .order_by(
-            ReferralCommission.id.desc()
+            PayoutHistory.id.desc()
         )
         .all()
     )
 
-    # ==================================================
+    # ======================================================
     # REPORT DATA
-    # ==================================================
+    # ======================================================
 
     report_data = []
 
-    total_investment_amount = Decimal("0")
-    total_commission = Decimal("0")
+    total_referral_income = Decimal("0")
+    total_level_income = Decimal("0")
+    total_rank_income = Decimal("0")
+    total_income = Decimal("0")
+    total_admin_fee = Decimal("0")
+    total_net_payable = Decimal("0")
 
-    for commission, user in results:
+    for payout, user in results:
 
-        investment_amount = Decimal(
-            str(commission.investment_amount or 0)
+        # --------------------------------------------------
+        # AMOUNTS
+        # --------------------------------------------------
+
+        referral_income = Decimal(
+            str(payout.referral_income or 0)
         )
 
-        commission_amount = Decimal(
-            str(commission.commission_amount or 0)
+        level_income = Decimal(
+            str(payout.level_income or 0)
         )
 
-        total_investment_amount += investment_amount
-        total_commission += commission_amount
+        rank_income = Decimal(
+            str(payout.rank_income or 0)
+        )
+
+        payout_income = Decimal(
+            str(payout.total_income or 0)
+        )
+
+        admin_fee = Decimal(
+            str(payout.admin_fee or 0)
+        )
+
+        net_payable = Decimal(
+            str(payout.net_payable or 0)
+        )
+
+        admin_fee_percentage = Decimal(
+            str(payout.admin_fee_percentage or 0)
+        )
+
+        # --------------------------------------------------
+        # TOTALS
+        # --------------------------------------------------
+
+        total_referral_income += referral_income
+        total_level_income += level_income
+        total_rank_income += rank_income
+        total_income += payout_income
+        total_admin_fee += admin_fee
+        total_net_payable += net_payable
+
+        # --------------------------------------------------
+        # USER NAME
+        # --------------------------------------------------
 
         user_name = (
-            f"{user.first_name} {user.last_name or ''}"
+            f"{user.first_name} "
+            f"{user.last_name or ''}"
         ).strip()
+
+        # --------------------------------------------------
+        # REPORT ROW
+        # --------------------------------------------------
 
         report_data.append({
 
-            "id": commission.id,
+            "id": payout.id,
 
             "user_id": user.user_id,
 
             "user_name": user_name,
 
-            "investment_id": commission.investment_id,
+            "referral_income": referral_income,
 
-            "investment_amount": (
-                commission.investment_amount
-            ),
+            "level_income": level_income,
 
-            "commission_percentage": (
-                commission.commission_percentage
-            ),
+            "rank_income": rank_income,
 
-            "commission_amount": (
-                commission.commission_amount
-            ),
+            "total_income": payout_income,
 
-            "paid_amount": (
-                commission.paid_amount
-            ),
+            "admin_fee_percentage": admin_fee_percentage,
 
-            "washout_amount": (
-                commission.washout_amount
-            ),
+            "admin_fee": admin_fee,
 
-            "status": commission.status,
+            "net_payable": net_payable,
 
-            "payment_date": (
-                commission.payment_date
-            ),
+            "payout_method": payout.payout_method,
 
-            "date": commission.created_at,
+            "payout_information": payout.payout_information,
+
+            "status": payout.status,
+
+            "paid_at": payout.paid_at,
+
+            "created_at": payout.created_at,
         })
 
-    # ==================================================
+    # ======================================================
     # SUMMARY
-    # ==================================================
+    # ======================================================
 
     summary = {
+
         "total_records": len(report_data),
 
-        "total_investment_amount": float(
-            total_investment_amount
+        "total_referral_income": float(
+            total_referral_income
         ),
 
-        "total_commission": float(
-            total_commission
+        "total_level_income": float(
+            total_level_income
+        ),
+
+        "total_rank_income": float(
+            total_rank_income
+        ),
+
+        "total_income": float(
+            total_income
+        ),
+
+        "total_admin_fee": float(
+            total_admin_fee
+        ),
+
+        "total_net_payable": float(
+            total_net_payable
         ),
     }
 
-    # ==================================================
+    # ======================================================
     # TEMPLATE
-    # ==================================================
+    # ======================================================
 
     return templates.TemplateResponse(
         request=request,
 
-        name="reports/referral_income_report.html",
+        name="reports/payout_report.html",
 
         context={
-            "title": "Referral Income Report",
+
+            "title": "Payout Report",
 
             "report_data": report_data,
 
             "summary": summary,
 
             "start_date": start_date,
+
             "end_date": end_date,
+
             "status": status,
+
             "user_id": user_id,
 
             "generated_at": datetime.now(),
