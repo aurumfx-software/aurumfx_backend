@@ -1,13 +1,33 @@
 from datetime import date, timedelta
-from app.utils.jwt import create_access_token
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    Query,
+    HTTPException,
+)
+
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+)
+
+from jose import jwt, JWTError
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_admin
 from app.models import User, RankSetting
 from app.schemas import UserStatusUpdateRequest
+from app.utils.jwt import create_access_token
+from app.utils.jwt import (
+    create_access_token,
+    decode_access_token,
+)
 
+security = HTTPBearer()
 
 router = APIRouter(
     prefix="/api/admin/members",
@@ -102,30 +122,95 @@ def get_members(
         for user in users
     ]
 
+# @router.post("/members/{user_id}/impersonate")
+# def impersonate_user(
+#     user_id: str,
+#     current_admin=Depends(get_current_admin),
+#     db: Session = Depends(get_db),
+# ):
+#     user = (
+#         db.query(User)
+#         .filter(User.user_id == user_id)
+#         .first()
+#     )
+
+#     if not user:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="User not found"
+#         )
+
+#     # Create temporary token
+#     token = create_access_token(
+#         data={
+#             "sub": user.user_id,
+#             "role": "USER",
+#             "impersonated_by": current_admin.user_id,
+#         }
+#     )
+
+#     return {
+#         "access_token": token,
+#         "token_type": "bearer",
+#         "user_id": user.user_id,
+#     }
+
+# # ==========================================================
+# # BLOCK / ACTIVATE USER
+# # ==========================================================
+
 @router.post("/members/{user_id}/impersonate")
 def impersonate_user(
     user_id: str,
     current_admin=Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
+    # ======================================================
+    # FIND USER
+    # ======================================================
+
     user = (
         db.query(User)
-        .filter(User.user_id == user_id)
+        .filter(
+            User.user_id == user_id,
+            User.role == "USER",
+        )
         .first()
     )
 
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="User not found"
+            detail="User not found",
         )
 
-    # Create temporary token
+    # ======================================================
+    # CHECK USER STATUS
+    # ======================================================
+
+    if user.status != "ACTIVE":
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot impersonate a blocked or inactive user.",
+        )
+
+    # ======================================================
+    # CREATE IMPERSONATION TOKEN
+    # ======================================================
+
     token = create_access_token(
         data={
             "sub": user.user_id,
             "role": "USER",
+
+            # IMPORTANT
+            "is_impersonation": True,
+
+            # Original admin
             "impersonated_by": current_admin.user_id,
+
+            # Original role
+            "original_role": "ADMIN",
         }
     )
 
@@ -133,11 +218,101 @@ def impersonate_user(
         "access_token": token,
         "token_type": "bearer",
         "user_id": user.user_id,
+        "role": "USER",
+        "is_impersonation": True,
+        "impersonated_by": current_admin.user_id,
     }
 
-# ==========================================================
-# BLOCK / ACTIVATE USER
-# ==========================================================
+@router.post("/switch-back")
+def switch_back_to_admin(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    # ======================================================
+    # DECODE TOKEN
+    # ======================================================
+
+    payload = decode_access_token(
+        credentials.credentials
+    )
+
+    if not payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    # DEBUG - temporarily keep this
+    print("SWITCH BACK PAYLOAD:", payload)
+
+    # ======================================================
+    # VERIFY IMPERSONATION
+    # ======================================================
+
+    if payload.get("is_impersonation") is not True:
+        raise HTTPException(
+            status_code=403,
+            detail="This is not an impersonation session."
+        )
+
+    # ======================================================
+    # GET ORIGINAL ADMIN
+    # ======================================================
+
+    admin_user_id = payload.get("impersonated_by")
+
+    if not admin_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Original admin information not found."
+        )
+
+    # ======================================================
+    # FIND ADMIN
+    # ======================================================
+
+    admin = (
+        db.query(User)
+        .filter(
+            User.user_id == admin_user_id,
+            User.role == "ADMIN",
+        )
+        .first()
+    )
+
+    if not admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Original admin account not found."
+        )
+
+    # ======================================================
+    # CHECK ADMIN STATUS
+    # ======================================================
+
+    if admin.status != "ACTIVE":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin account is not active."
+        )
+
+    # ======================================================
+    # CREATE ADMIN TOKEN
+    # ======================================================
+
+    admin_token = create_access_token(
+        data={
+            "sub": admin.user_id,
+            "role": "ADMIN",
+        }
+    )
+
+    return {
+        "access_token": admin_token,
+        "token_type": "bearer",
+        "user_id": admin.user_id,
+        "role": "ADMIN",
+    }
 
 @router.patch("/{user_id}/status")
 def update_user_status(
