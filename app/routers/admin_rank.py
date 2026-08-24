@@ -11,7 +11,8 @@ from app.schemas import (
     RankSettingCreate,
     RankSettingUpdate,
     RankSettingResponse,
-    RankHolderResponse
+    RankHolderResponse,
+    AdminRankSettingResponse
 )
 from app.core.security import get_current_user
 
@@ -124,13 +125,12 @@ def create_rank(
 #--------------------------------------------------------------------------------------------------
 @router.get(
     "/",
-    response_model=list[RankSettingResponse]
+    response_model=list[AdminRankSettingResponse]
 )
 def get_all_ranks(
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin)
 ):
-
     ranks = (
         db.query(RankSetting)
         .options(

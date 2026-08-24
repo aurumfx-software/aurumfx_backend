@@ -318,6 +318,32 @@ class RankSettingResponse(BaseModel):
     class Config:
         from_attributes = True
 
+from pydantic import BaseModel, ConfigDict
+
+
+class AdminRankConditionResponse(BaseModel):
+    id: int
+    rank_id: int
+    order_no: int
+    minimum_group_lots: int
+    required_group_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminRankSettingResponse(BaseModel):
+    id: int
+    rank_name: str
+    rank_no: int
+    minimum_total_lots: int
+    minimum_direct_sponsors: int
+    reward_income: float
+    criteria: str | None
+    status: bool
+
+    conditions: list[RankConditionResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
 class ActivityHistoryResponse(BaseModel):
     id: int
     activity_type: str
