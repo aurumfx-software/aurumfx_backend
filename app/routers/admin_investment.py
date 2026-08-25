@@ -373,7 +373,7 @@ def today_returns(
                 user_name=user.first_name,
                 plan_name=plan.plan_name,
                 return_type=return_type.return_type,
-                amount=inv.amount,
+                amount=inv.monthly_return_amount,
                 lots=inv.lots,
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,

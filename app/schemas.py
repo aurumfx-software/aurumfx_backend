@@ -141,6 +141,7 @@ class AdminInvestmentResponse(BaseModel):
     user_name: str
     plan_name: str
     return_type: str
+    # amount: float
     amount: float
     lots: int
     investment_status: str
