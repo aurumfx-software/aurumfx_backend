@@ -505,6 +505,7 @@ class RankHolderResponse(BaseModel):
     last_name: str | None = None
     rank_id: int
     image: str | None = None
+    achieved_at: datetime | None
 
 
     class Config:

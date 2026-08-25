@@ -5,7 +5,8 @@ from app.database import get_db
 from app.models import (
     RankSetting,
     RankCondition,
-    User
+    User,
+    UserRankHistory
 )
 from app.schemas import (
     RankSettingCreate,
@@ -287,6 +288,8 @@ def delete_rank(
         "message":"Rank deleted successfully"
     }
 
+
+
 @router.get(
     "/{rank_id}/holders",
     response_model=list[RankHolderResponse]
@@ -296,7 +299,8 @@ def get_rank_holders(
     db: Session = Depends(get_db)
 ):
     """
-    Get all users who currently hold the specified rank.
+    Get all users who currently hold the specified rank,
+    including the date they achieved the rank.
     """
 
     rank = (
@@ -311,12 +315,19 @@ def get_rank_holders(
             detail="Rank not found"
         )
 
-    users = (
-        db.query(User)
-        .filter(
-            User.current_rank_id == rank_id
+    holders = (
+        db.query(User, UserRankHistory.achieved_at)
+        .join(
+            UserRankHistory,
+            UserRankHistory.user_id == User.id
         )
-        .order_by(User.id.asc())
+        .filter(
+            User.current_rank_id == rank_id,
+            UserRankHistory.rank_id == rank_id
+        )
+        .order_by(
+            User.id.asc()
+        )
         .all()
     )
 
@@ -328,8 +339,7 @@ def get_rank_holders(
             last_name=user.last_name,
             rank_id=user.current_rank_id,
             image=user.profile_image,
-
-
+            achieved_at=achieved_at,
         )
-        for user in users
+        for user, achieved_at in holders
     ]
