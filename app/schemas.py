@@ -104,6 +104,7 @@ class InvestmentResponse(BaseModel):
     investment_id: str
     return_type: str
     plan_name: str
+    duration_months: int
     amount: float
     lots: int
     monthly_return_percentage: float

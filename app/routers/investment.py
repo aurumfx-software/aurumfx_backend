@@ -389,6 +389,7 @@ def my_investments(
                 investment_id=inv.investment_id,
                 return_type=return_type.return_type if return_type else "",
                 plan_name=plan.plan_name if plan else "",
+                duration_months=plan.duration_months if plan else 0,
                 amount=inv.amount,
                 lots=inv.lots,
                 monthly_return_percentage=inv.monthly_return_percentage,
