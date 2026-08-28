@@ -1337,3 +1337,101 @@ class ReturnDateSetting(Base):
         onupdate=datetime.utcnow,
         nullable=False
     )
+
+class AdminNotification(Base):
+    __tablename__ = "admin_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    notification_type = Column(
+        String(50),
+        nullable=False
+    )
+
+    title = Column(
+        String(255),
+        nullable=False
+    )
+
+    message = Column(
+        Text,
+        nullable=False
+    )
+
+    reference_id = Column(
+        Integer,
+        nullable=True
+    )
+
+    reference_type = Column(
+        String(50),
+        nullable=True
+    )
+
+    is_read = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
+
+class UserNotification(Base):
+    __tablename__ = "user_notifications"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id = Column(
+        String,
+        nullable=False,
+        index=True,
+    )
+
+    notification_type = Column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+
+    title = Column(
+        String(255),
+        nullable=False,
+    )
+
+    message = Column(
+        Text,
+        nullable=False,
+    )
+
+    reference_id = Column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    reference_type = Column(
+        String(50),
+        nullable=True,
+    )
+
+    is_read = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+        index=True,
+    )

@@ -31,7 +31,9 @@ from app.routers import user_rank
 from app.routers import user_kyc
 from app.routers import user_payout_history
 from app.routers.help_center import router as help_center_router
+from app.routers.user_notifications import router as user_notifications
 from app.routers.admin_help_center import router as admin_help_center_router
+from app.routers.admin_notifications import router as admin_notifications
 from app.routers.admin_return_date import router as admin_return_date_router
 from app.routers.admin_investment_report import (router as admin_investment_report_router)
 from app.routers.admin_payout_report import (router as admin_payout_report_router)
@@ -108,7 +110,9 @@ app.include_router(user_rank.router)
 app.include_router(user_kyc.router)
 app.include_router(user_payout_history.router)
 app.include_router(help_center_router)
+app.include_router(user_notifications)
 app.include_router(admin_help_center_router)
+app.include_router(admin_notifications)
 app.include_router(admin_return_date_router)
 app.include_router(admin_investment_report_router)
 app.include_router(admin_payout_report_router)

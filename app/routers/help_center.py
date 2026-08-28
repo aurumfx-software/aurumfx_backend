@@ -31,6 +31,10 @@ from app.utils.spaces import (
     generate_support_ticket_url,
 )
 
+from app.utils.notifications import (
+    create_admin_notification,
+)
+
 
 router = APIRouter(
     prefix="/user/help-center",
@@ -87,7 +91,9 @@ async def create_support_ticket(
 
     last_ticket = (
         db.query(SupportTicket)
-        .order_by(SupportTicket.id.desc())
+        .order_by(
+            SupportTicket.id.desc()
+        )
         .first()
     )
 
@@ -126,16 +132,33 @@ async def create_support_ticket(
     )
 
     db.add(ticket)
-    db.commit()
-    db.refresh(ticket)
+
+    # Get ticket.id before commit
+    db.flush()
 
     # --------------------------------------------------------
-    # Generate display URL
+    # CREATE ADMIN NOTIFICATION
     # --------------------------------------------------------
 
-    attachment_url = generate_support_ticket_url(
-        ticket.attachment
+    create_admin_notification(
+        db=db,
+        notification_type="SUPPORT_TICKET",
+        title="New Support Ticket",
+        message=(
+            f"User {current_user} created "
+            f"support ticket {ticket.ticket_number}"
+        ),
+        reference_id=ticket.id,
+        reference_type="SUPPORT_TICKET",
     )
+
+    # --------------------------------------------------------
+    # Commit everything together
+    # --------------------------------------------------------
+
+    db.commit()
+
+    db.refresh(ticket)
 
     # --------------------------------------------------------
     # Response
@@ -259,6 +282,7 @@ async def user_reply_to_ticket(
     # --------------------------------------------------------
 
     if ticket.status == "CLOSED":
+
         raise HTTPException(
             status_code=400,
             detail="This ticket is closed",
@@ -297,7 +321,28 @@ async def user_reply_to_ticket(
 
     ticket.status = "OPEN"
 
+    # --------------------------------------------------------
+    # CREATE ADMIN NOTIFICATION
+    # --------------------------------------------------------
+
+    create_admin_notification(
+        db=db,
+        notification_type="SUPPORT_TICKET_REPLY",
+        title="New Ticket Reply",
+        message=(
+            f"User {current_user} replied to "
+            f"ticket {ticket.ticket_number}"
+        ),
+        reference_id=ticket.id,
+        reference_type="SUPPORT_TICKET",
+    )
+
+    # --------------------------------------------------------
+    # Commit
+    # --------------------------------------------------------
+
     db.commit()
+
     db.refresh(reply)
 
     # --------------------------------------------------------
@@ -337,10 +382,6 @@ def get_user_ticket_details(
     current_user: str = Depends(get_current_user),
 ):
 
-    # --------------------------------------------------------
-    # Get ticket
-    # --------------------------------------------------------
-
     ticket = (
         db.query(SupportTicket)
         .filter(
@@ -351,14 +392,11 @@ def get_user_ticket_details(
     )
 
     if not ticket:
+
         raise HTTPException(
             status_code=404,
             detail="Ticket not found",
         )
-
-    # --------------------------------------------------------
-    # Get replies
-    # --------------------------------------------------------
 
     replies = (
         db.query(SupportTicketMessage)
@@ -371,10 +409,6 @@ def get_user_ticket_details(
         .all()
     )
 
-    # --------------------------------------------------------
-    # Ticket attachment URL
-    # --------------------------------------------------------
-
     ticket_attachment_url = (
         generate_support_ticket_url(
             ticket.attachment
@@ -382,10 +416,6 @@ def get_user_ticket_details(
         if ticket.attachment
         else None
     )
-
-    # --------------------------------------------------------
-    # Reply list
-    # --------------------------------------------------------
 
     reply_list = []
 
@@ -409,10 +439,6 @@ def get_user_ticket_details(
                 created_at=reply.created_at,
             )
         )
-
-    # --------------------------------------------------------
-    # Response
-    # --------------------------------------------------------
 
     return SupportTicketDetailsResponse(
         ticket_id=ticket.id,

@@ -1,15 +1,12 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_admin
-from datetime import date
-
-
 
 from app.models import (
     User,
@@ -92,6 +89,8 @@ def get_user_wallet(
 
     If create=True and wallet doesn't exist,
     create it.
+
+    Wallet is locked using FOR UPDATE.
     """
 
     wallet = (
@@ -138,6 +137,11 @@ def get_longest_investment(
             Investment.investment_plan_id
             == InvestmentPlan.id
         )
+        .options(
+            joinedload(
+                Investment.investment_plan
+            )
+        )
         .filter(
             Investment.user_id == user_id,
             Investment.approval_status == "APPROVED"
@@ -157,6 +161,9 @@ def get_pending_referral(
     db: Session,
     user_id: int
 ):
+    """
+    Get and lock pending referral commissions.
+    """
 
     return (
         db.query(ReferralCommission)
@@ -177,6 +184,9 @@ def get_pending_level(
     db: Session,
     user_id: int
 ):
+    """
+    Get and lock pending level commissions.
+    """
 
     return (
         db.query(LevelCommissionHistory)
@@ -197,6 +207,9 @@ def get_pending_rank(
     db: Session,
     user_id: int
 ):
+    """
+    Get and lock unpaid rank rewards.
+    """
 
     return (
         db.query(UserRankHistory)
@@ -207,6 +220,55 @@ def get_pending_rank(
         .with_for_update()
         .all()
     )
+
+
+# ============================================================
+# GET BANK DETAILS
+# ============================================================
+
+def get_bank_details(
+    user: User
+):
+    """
+    Safely get user's bank details.
+
+    Bank details are now stored in
+    UserBankDetails, not directly in User.
+    """
+
+    bank = user.bank_details
+
+    if not bank:
+        return {
+            "bank_account": None,
+            "bank_name": None,
+            "ifsc": None,
+            "bank_proof": None,
+            "status": None,
+            "rejection_reason": None,
+        }
+
+    return {
+        "bank_account": bank.bank_account,
+        "bank_name": bank.bank_name,
+        "ifsc": bank.ifsc,
+        "bank_proof": bank.bank_proof,
+        "status": bank.status,
+        "rejection_reason": bank.rejection_reason,
+    }
+
+
+# ============================================================
+# USER NAME
+# ============================================================
+
+def get_user_name(
+    user: User
+):
+    return (
+        f"{user.first_name or ''} "
+        f"{user.last_name or ''}"
+    ).strip()
 
 
 # ============================================================
@@ -230,14 +292,31 @@ def get_pending_payouts(
     Admin fee:
 
         Calculated from total income.
+
+    Bank details:
+
+        Loaded from UserBankDetails.
     """
+
+    # ========================================================
+    # ADMIN FEE
+    # ========================================================
 
     admin_fee_percentage = (
         get_admin_fee_percentage(db)
     )
 
+    # ========================================================
+    # USERS
+    # ========================================================
+
     users = (
         db.query(User)
+        .options(
+            joinedload(
+                User.bank_details
+            )
+        )
         .all()
     )
 
@@ -334,6 +413,7 @@ def get_pending_payouts(
             + rank_pending
         )
 
+        # No pending income
         if total_income <= 0:
             continue
 
@@ -352,7 +432,6 @@ def get_pending_payouts(
         wallet_pending = Decimal("0.00")
 
         if wallet:
-
             wallet_pending = money(
                 wallet.pending_balance
             )
@@ -401,6 +480,14 @@ def get_pending_payouts(
                 )
 
         # ====================================================
+        # BANK DETAILS
+        # ====================================================
+
+        bank_details = get_bank_details(
+            user
+        )
+
+        # ====================================================
         # RESULT
         # ====================================================
 
@@ -410,10 +497,9 @@ def get_pending_payouts(
 
             "user_code": user.user_id,
 
-            "user_name": (
-                f"{user.first_name or ''} "
-                f"{user.last_name or ''}"
-            ).strip(),
+            "user_name": get_user_name(
+                user
+            ),
 
             # ----------------------------------------------
             # Income
@@ -475,16 +561,11 @@ def get_pending_payouts(
             # Bank Details
             # ----------------------------------------------
 
-            "bank_details": {
+            "bank_details": bank_details,
 
-                "bank_account": user.bank_account,
-
-                "bank_name": user.bank_name,
-
-                "ifsc": user.ifsc,
-            },
-
-            "bank_proof": user.bank_proof,
+            # ----------------------------------------------
+            # Status
+            # ----------------------------------------------
 
             "status": "PENDING"
         })
@@ -545,6 +626,11 @@ def pay_user(
 
         user = (
             db.query(User)
+            .options(
+                joinedload(
+                    User.bank_details
+                )
+            )
             .filter(
                 User.id == user_id
             )
@@ -707,9 +793,7 @@ def pay_user(
         )
 
         # ====================================================
-        # CALCULATE ADMIN FEE
-        #
-        # Referral + Level + Rank
+        # ADMIN FEE
         # ====================================================
 
         admin_fee = money(
@@ -763,23 +847,15 @@ def pay_user(
         # UPDATE WALLET
         # ====================================================
 
-        # Gross income is removed
-        # from pending balance.
-
         wallet.pending_balance = money(
             pending_before
             - total_income
         )
 
-        # Net amount goes to wallet balance.
-
         wallet.balance = money(
             balance_before
             + net_payable
         )
-
-        # Admin fee is accumulated
-        # in wallet admin_fee.
 
         wallet.admin_fee = money(
             admin_fee_before
@@ -948,6 +1024,14 @@ def pay_user(
         )
 
         # ====================================================
+        # BANK DETAILS
+        # ====================================================
+
+        bank_details = get_bank_details(
+            user
+        )
+
+        # ====================================================
         # RESPONSE
         # ====================================================
 
@@ -965,10 +1049,9 @@ def pay_user(
 
             "user_code": user.user_id,
 
-            "user_name": (
-                f"{user.first_name or ''} "
-                f"{user.last_name or ''}"
-            ).strip(),
+            "user_name": get_user_name(
+                user
+            ),
 
             # ----------------------------------------------
             # Income
@@ -1054,6 +1137,12 @@ def pay_user(
             },
 
             # ----------------------------------------------
+            # Bank Details
+            # ----------------------------------------------
+
+            "bank_details": bank_details,
+
+            # ----------------------------------------------
             # Payout History
             # ----------------------------------------------
 
@@ -1103,14 +1192,32 @@ def pay_user(
         )
 
 
+# ============================================================
+# GET PAID PAYOUTS
+# ============================================================
+
 @router.get("/paid")
 def get_paid_payouts(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    """
+    Get all paid payouts.
+    """
+
     payouts = (
         db.query(PayoutHistory)
-        .join(User, PayoutHistory.user_id == User.id)
+        .join(
+            User,
+            PayoutHistory.user_id == User.id
+        )
+        .options(
+            joinedload(
+                PayoutHistory.user
+            ).joinedload(
+                User.bank_details
+            )
+        )
         .filter(
             PayoutHistory.status == "PAID"
         )
@@ -1126,6 +1233,13 @@ def get_paid_payouts(
 
         user = payout.user
 
+        if not user:
+            continue
+
+        bank_details = get_bank_details(
+            user
+        )
+
         result.append({
 
             "payout_history_id": payout.id,
@@ -1134,10 +1248,9 @@ def get_paid_payouts(
 
             "user_code": user.user_id,
 
-            "user_name": (
-                f"{user.first_name or ''} "
-                f"{user.last_name or ''}"
-            ).strip(),
+            "user_name": get_user_name(
+                user
+            ),
 
             # ----------------------------------------------
             # Income
@@ -1180,10 +1293,18 @@ def get_paid_payouts(
             ),
 
             # ----------------------------------------------
+            # Bank Details
+            # ----------------------------------------------
+
+            "bank_details": bank_details,
+
+            # ----------------------------------------------
             # Payout
             # ----------------------------------------------
 
-            "payout_method": payout.payout_method,
+            "payout_method": (
+                payout.payout_method
+            ),
 
             "payout_information": (
                 payout.payout_information
@@ -1202,7 +1323,9 @@ def get_paid_payouts(
     }
 
 
-# ...
+# ============================================================
+# GET PAYOUT HISTORY
+# ============================================================
 
 @router.get("/history")
 def get_payout_history(
@@ -1214,11 +1337,29 @@ def get_payout_history(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    """
+    Get payout history with filters.
+
+    Filters:
+
+        start_date
+        end_date
+        status
+        user_id
+    """
+
     query = (
         db.query(PayoutHistory)
         .join(
             User,
             PayoutHistory.user_id == User.id
+        )
+        .options(
+            joinedload(
+                PayoutHistory.user
+            ).joinedload(
+                User.bank_details
+            )
         )
     )
 
@@ -1227,6 +1368,7 @@ def get_payout_history(
     # ========================================================
 
     if user_id is not None:
+
         query = query.filter(
             PayoutHistory.user_id == user_id
         )
@@ -1236,8 +1378,10 @@ def get_payout_history(
     # ========================================================
 
     if status:
+
         query = query.filter(
-            PayoutHistory.status == status.upper()
+            PayoutHistory.status
+            == status.upper()
         )
 
     # ========================================================
@@ -1245,8 +1389,13 @@ def get_payout_history(
     # ========================================================
 
     if start_date:
+
         query = query.filter(
-            PayoutHistory.paid_at >= start_date
+            PayoutHistory.paid_at
+            >= datetime.combine(
+                start_date,
+                datetime.min.time()
+            )
         )
 
     # ========================================================
@@ -1254,13 +1403,30 @@ def get_payout_history(
     # ========================================================
 
     if end_date:
-        query = query.filter(
-            PayoutHistory.paid_at < (
-                datetime.combine(
-                    end_date,
-                    datetime.max.time()
-                )
+
+        # Include the entire end_date.
+        #
+        # Example:
+        #
+        # end_date = 2026-08-28
+        #
+        # Includes:
+        #
+        # 2026-08-28 00:00:00
+        # through
+        # 2026-08-28 23:59:59.999999
+
+        end_datetime = (
+            datetime.combine(
+                end_date,
+                datetime.min.time()
             )
+            + timedelta(days=1)
+        )
+
+        query = query.filter(
+            PayoutHistory.paid_at
+            < end_datetime
         )
 
     # ========================================================
@@ -1283,16 +1449,14 @@ def get_payout_history(
 
     for payout in payouts:
 
-        user = (
-            db.query(User)
-            .filter(
-                User.id == payout.user_id
-            )
-            .first()
-        )
+        user = payout.user
 
         if not user:
             continue
+
+        bank_details = get_bank_details(
+            user
+        )
 
         result.append({
 
@@ -1302,10 +1466,9 @@ def get_payout_history(
 
             "user_code": user.user_id,
 
-            "user_name": (
-                f"{user.first_name or ''} "
-                f"{user.last_name or ''}"
-            ).strip(),
+            "user_name": get_user_name(
+                user
+            ),
 
             # --------------------------------------------
             # Income
@@ -1348,10 +1511,18 @@ def get_payout_history(
             ),
 
             # --------------------------------------------
+            # Bank Details
+            # --------------------------------------------
+
+            "bank_details": bank_details,
+
+            # --------------------------------------------
             # Payout
             # --------------------------------------------
 
-            "payout_method": payout.payout_method,
+            "payout_method": (
+                payout.payout_method
+            ),
 
             "payout_information": (
                 payout.payout_information

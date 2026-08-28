@@ -22,6 +22,10 @@ from app.utils.spaces import (
     generate_support_ticket_url,
 )
 
+from app.utils.notifications import (
+    create_user_notification,
+)
+
 from app.schemas import (
     AdminSupportTicketListItem,
     AdminSupportTicketListResponse,
@@ -166,7 +170,7 @@ async def admin_reply_to_ticket(
         )
 
     # --------------------------------------------------------
-    # Create reply
+    # Create admin reply
     # --------------------------------------------------------
 
     reply = SupportTicketMessage(
@@ -184,6 +188,27 @@ async def admin_reply_to_ticket(
     # --------------------------------------------------------
 
     ticket.status = "OPEN"
+
+    # --------------------------------------------------------
+    # USER NOTIFICATION
+    # --------------------------------------------------------
+
+    create_user_notification(
+        db=db,
+        user_id=ticket.user_id,
+        notification_type="SUPPORT_TICKET_REPLY",
+        title="New Support Ticket Reply",
+        message=(
+            f"Admin replied to your ticket "
+            f"{ticket.ticket_number}"
+        ),
+        reference_id=ticket.id,
+        reference_type="SUPPORT_TICKET",
+    )
+
+    # --------------------------------------------------------
+    # Commit
+    # --------------------------------------------------------
 
     db.commit()
 
@@ -208,7 +233,6 @@ async def admin_reply_to_ticket(
         "status": ticket.status,
         "attachment": attachment_url,
     }
-
 
 # ============================================================
 # GET ADMIN TICKET DETAILS
