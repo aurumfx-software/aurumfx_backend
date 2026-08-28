@@ -17,6 +17,8 @@ class RegisterUser(BaseModel):
     country: str
     city: str| None = None
     zip_code: str| None = None
+    building_no: str| None = None
+    street: str| None = None
     mobile: str
     aadhar_no: str
 

@@ -28,17 +28,23 @@ pwd_context = CryptContext(
 # Check entroller
 # ----------------------------
 @router.get("/check-enroller/{enroller_id}")
-def check_enroller(enroller_id: str, db: Session = Depends(get_db)):
+def check_enroller(
+    enroller_id: str,
+    db: Session = Depends(get_db)
+):
     user = (
         db.query(User)
-        .filter(User.user_id == enroller_id)
+        .filter(
+            User.user_id == enroller_id,
+            User.status == "ACTIVE"
+        )
         .first()
     )
 
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="Enroller ID not found"
+            detail="Enroller ID not found or inactive"
         )
 
     return {
@@ -46,7 +52,7 @@ def check_enroller(enroller_id: str, db: Session = Depends(get_db)):
         "user_id": user.user_id,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "full_name": f"{user.first_name} {user.last_name}"
+        "full_name": f"{user.first_name} {user.last_name}".strip()
     }
 # ----------------------------
 # Register
@@ -155,6 +161,10 @@ def register(
         city=user.city,
 
         zip_code=user.zip_code,
+
+        building_no=user.building_no,
+
+        street=user.street,
 
         mobile=user.mobile,
 

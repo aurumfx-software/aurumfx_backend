@@ -18,6 +18,8 @@ class User(Base):
     country = Column(String, nullable=False)
     city = Column(String, nullable=True)
     zip_code = Column(String, nullable=True)
+    building_no = Column(String, nullable=True)
+    street = Column(String, nullable=True)
     mobile = Column(String, nullable=False)
     gender = Column(String, nullable=True)
     club = Column(String, nullable=True)
