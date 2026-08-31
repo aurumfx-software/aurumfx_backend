@@ -223,3 +223,31 @@ def upload_investment_payment_proof(
     )
 
     return key
+
+# ==========================================================
+# DELETE OBJECT FROM DIGITALOCEAN SPACES
+# ==========================================================
+
+def delete_spaces_object(object_key: str | None):
+    """
+    Delete an object from DigitalOcean Spaces.
+
+    If object_key is None or empty, nothing happens.
+    """
+
+    if not object_key:
+        return
+
+    try:
+
+        s3_client.delete_object(
+            Bucket=SPACES_BUCKET,
+            Key=object_key,
+        )
+
+    except Exception as exc:
+
+        print(
+            f"Failed to delete Spaces object "
+            f"{object_key}: {exc}"
+        )

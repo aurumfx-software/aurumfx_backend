@@ -10,8 +10,9 @@ from app.utils.jwt import create_access_token
 from app.core.security import get_current_user
 from app.services.binary_tree import  find_placement_parent
 from app.services.activity_service import get_activity_history
-from app.services.spaces_service import upload_profile_image, upload_bank_proof, get_presigned_url
+from app.services.spaces_service import upload_profile_image, upload_bank_proof, get_presigned_url,delete_spaces_object
 from app.core.security import verify_password, get_password_hash
+
 # from app.services.email_service import send_registration_email
 
 router = APIRouter(
