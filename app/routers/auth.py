@@ -560,18 +560,18 @@ def update_profile(
     # --------------------------------
     # Check email already exists
     # --------------------------------
-    if profile.email != user.email:
+    # if profile.email != user.email:
 
-        existing_email = db.query(User).filter(
-            User.email == profile.email,
-            User.id != user.id
-        ).first()
+    #     existing_email = db.query(User).filter(
+    #         User.email == profile.email,
+    #         User.id != user.id
+    #     ).first()
 
-        if existing_email:
-            raise HTTPException(
-                status_code=400,
-                detail="Email already registered"
-            )
+    #     if existing_email:
+    #         raise HTTPException(
+    #             status_code=400,
+    #             detail="Email already registered"
+    #       )
 
     # --------------------------------
     # Check Aadhar already exists
