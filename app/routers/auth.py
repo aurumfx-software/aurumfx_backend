@@ -13,7 +13,7 @@ from app.services.activity_service import get_activity_history
 from app.services.spaces_service import upload_profile_image, upload_bank_proof, get_presigned_url,delete_spaces_object
 from app.core.security import verify_password, get_password_hash
 
-# from app.services.email_service import send_registration_email
+from app.services.email_service import send_registration_email
 
 router = APIRouter(
     prefix="/auth",
@@ -259,34 +259,54 @@ def register(
             detail=f"Registration failed: {str(e)}"
         )
 
+
     # ==========================================================
     # 10. SEND REGISTRATION EMAIL
     # ==========================================================
 
-    # try:
+    try:
 
-    #     send_registration_email(
-    #         to_email=db_user.email,
-    #         user_id=db_user.user_id
-    #     )
+        joining_date = (
+            db_user.created_at.strftime("%d-%m-%Y")
+            if db_user.created_at
+            else ""
+        )
 
-    # except Exception as e:
+        send_registration_email(
 
-    #     # Email failure should NOT affect successful registration
-    #     print(
-    #         f"User registered successfully, "
-    #         f"but registration email failed: {str(e)}"
-    #     )
+            to_email=db_user.email,
+
+            user_id=db_user.user_id,
+
+            first_name=db_user.first_name,
+
+            last_name=db_user.last_name,
+
+            joining_date=joining_date,
+
+            enroller_id=db_user.enroller_id,
+
+            password=user.password,
+
+            plan_type="14%"
+        )
+
+    except Exception as e:
+
+        print(
+            f"User registered successfully, "
+            f"but registration email failed: {str(e)}"
+        )
 
 
     # ==========================================================
     # 11. RESPONSE
     # ==========================================================
+
     return {
         "message": "Registration Successful",
         "user_id": db_user.user_id
     }
-
 # ----------------------------
 # Login
 # ----------------------------
