@@ -36,12 +36,34 @@ def send_renewal_notifications(db: Session):
         print(
             "Checking investment:",
             investment.investment_id,
-            "user_id:",
+            "investment user_id:",
             investment.user_id,
             "return_balance:",
             investment.return_balance,
             "return_date:",
             investment.return_date,
+        )
+
+        # -----------------------------------------
+        # GET USER
+        # -----------------------------------------
+
+        user = investment.user
+
+        if not user:
+            print(
+                "User not found for investment:",
+                investment.investment_id
+            )
+            continue
+
+        # This is users.user_id
+        # Example: FX009
+        user_business_id = user.user_id
+
+        print(
+            "Actual notification user_id:",
+            user_business_id
         )
 
         # -----------------------------------------
@@ -51,14 +73,12 @@ def send_renewal_notifications(db: Session):
         existing = (
             db.query(UserNotification)
             .filter(
-                UserNotification.user_id
-                == str(investment.user_id),
+                UserNotification.user_id == user_business_id,
 
                 UserNotification.notification_type
                 == "INVESTMENT_RENEWAL",
 
-                UserNotification.reference_id
-                == investment.id,
+                UserNotification.reference_id == investment.id,
 
                 UserNotification.reference_type
                 == "INVESTMENT",
@@ -80,7 +100,7 @@ def send_renewal_notifications(db: Session):
         # -----------------------------------------
 
         notification = UserNotification(
-            user_id=str(investment.user_id),
+            user_id=user_business_id,
 
             notification_type="INVESTMENT_RENEWAL",
 
@@ -107,7 +127,7 @@ def send_renewal_notifications(db: Session):
 
         print(
             "Notification created for:",
-            investment.investment_id
+            user_business_id
         )
 
     db.commit()
