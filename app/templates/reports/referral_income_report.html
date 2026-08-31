@@ -1,8 +1,218 @@
-{% block summary %}
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+```
+<title>Referral Income Report</title>
+
+<style>
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background: #ffffff;
+        margin: 0;
+        padding: 20px;
+        color: #111;
+    }
+
+    .report-container {
+        width: 100%;
+    }
+
+    .report-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .report-header h1 {
+        margin: 0 0 12px 0;
+        font-size: 24px;
+    }
+
+    .report-filters {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: wrap;
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .summary-box {
+        border: 1px solid #333;
+        padding: 10px;
+        text-align: center;
+    }
+
+    .summary-label {
+        font-size: 11px;
+        font-weight: bold;
+        margin-bottom: 6px;
+    }
+
+    .summary-value {
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .table-container {
+        width: 100%;
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10px;
+    }
+
+    .report-table th,
+    .report-table td {
+        border: 1px solid #333;
+        padding: 6px 5px;
+        white-space: nowrap;
+    }
+
+    .report-table th {
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .report-table td {
+        text-align: left;
+    }
+
+    .report-table .amount {
+        text-align: right;
+    }
+
+    .report-table tbody tr:nth-child(even) {
+        background: #f5f5f5;
+    }
+
+    .report-table tfoot th {
+        font-weight: bold;
+        border-top: 2px solid #000;
+    }
+
+    .no-data {
+        text-align: center !important;
+        padding: 25px !important;
+        font-weight: bold;
+    }
+
+    .generated-at {
+        margin-top: 15px;
+        font-size: 10px;
+        text-align: right;
+    }
+
+    @media print {
+
+        body {
+            padding: 0;
+        }
+
+        .report-container {
+            width: 100%;
+        }
+
+        .report-header h1 {
+            font-size: 20px;
+        }
+
+        .summary-grid {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .report-table {
+            font-size: 8px;
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 4px;
+        }
+
+        @page {
+            size: landscape;
+            margin: 8mm;
+        }
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+<div class="report-container">
+
+```
+<!-- =====================================================
+     HEADER
+====================================================== -->
+
+<div class="report-header">
+
+    <h1>Referral Income Report</h1>
+
+    <div class="report-filters">
+
+        {% if start_date %}
+            <span>
+                <strong>From:</strong>
+                {{ start_date }}
+            </span>
+        {% endif %}
+
+        {% if end_date %}
+            <span>
+                <strong>To:</strong>
+                {{ end_date }}
+            </span>
+        {% endif %}
+
+        {% if status %}
+            <span>
+                <strong>Status:</strong>
+                {{ status }}
+            </span>
+        {% endif %}
+
+        {% if user_id %}
+            <span>
+                <strong>User ID:</strong>
+                {{ user_id }}
+            </span>
+        {% endif %}
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     SUMMARY
+====================================================== -->
 
 <div class="summary-grid">
 
     <div class="summary-box">
+
         <div class="summary-label">
             Total Records
         </div>
@@ -10,10 +220,12 @@
         <div class="summary-value">
             {{ summary.total_records or 0 }}
         </div>
+
     </div>
 
 
     <div class="summary-box">
+
         <div class="summary-label">
             Total Investment
         </div>
@@ -23,21 +235,308 @@
                 summary.total_investment_amount or 0
             ) }}
         </div>
+
     </div>
 
 
     <div class="summary-box">
+
         <div class="summary-label">
             Total Commission
         </div>
 
         <div class="summary-value">
             ₹ {{ "%.2f"|format(
-                summary.total_commission or 0
+                summary.total_commission_amount or 0
             ) }}
         </div>
+
+    </div>
+
+
+    <div class="summary-box">
+
+        <div class="summary-label">
+            Total Paid
+        </div>
+
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(
+                summary.total_paid_amount or 0
+            ) }}
+        </div>
+
+    </div>
+
+
+    <div class="summary-box">
+
+        <div class="summary-label">
+            Total Washout
+        </div>
+
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(
+                summary.total_washout_amount or 0
+            ) }}
+        </div>
+
     </div>
 
 </div>
 
-{% endblock %}
+
+<!-- =====================================================
+     REPORT TABLE
+====================================================== -->
+
+<div class="table-container">
+
+    <table class="report-table">
+
+        <thead>
+
+            <tr>
+
+                <th>#</th>
+
+                <th>Receiver ID</th>
+                <th>Receiver Name</th>
+
+                <th>Investor ID</th>
+                <th>Investor Name</th>
+
+                <th>Investment ID</th>
+                <th>Investment Amount</th>
+
+                <th>Commission %</th>
+                <th>Commission Amount</th>
+
+                <th>Paid Amount</th>
+                <th>Washout Amount</th>
+
+                <th>Status</th>
+
+                <th>Payment Date</th>
+                <th>Created At</th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {% if report_data %}
+
+                {% for row in report_data %}
+
+                <tr>
+
+                    <td>
+                        {{ loop.index }}
+                    </td>
+
+
+                    <td>
+                        {{ row.user_id or '-' }}
+                    </td>
+
+                    <td>
+                        {{ row.user_name or '-' }}
+                    </td>
+
+
+                    <td>
+                        {{ row.investor_id or '-' }}
+                    </td>
+
+                    <td>
+                        {{ row.investor_name or '-' }}
+                    </td>
+
+
+                    <td>
+                        {{ row.investment_id or '-' }}
+                    </td>
+
+
+                    <td class="amount">
+
+                        ₹ {{ "%.2f"|format(
+                            row.investment_amount or 0
+                        ) }}
+
+                    </td>
+
+
+                    <td>
+
+                        {{ "%.2f"|format(
+                            row.commission_percentage or 0
+                        ) }}%
+
+                    </td>
+
+
+                    <td class="amount">
+
+                        ₹ {{ "%.2f"|format(
+                            row.commission_amount or 0
+                        ) }}
+
+                    </td>
+
+
+                    <td class="amount">
+
+                        ₹ {{ "%.2f"|format(
+                            row.paid_amount or 0
+                        ) }}
+
+                    </td>
+
+
+                    <td class="amount">
+
+                        ₹ {{ "%.2f"|format(
+                            row.washout_amount or 0
+                        ) }}
+
+                    </td>
+
+
+                    <td>
+                        {{ row.status or '-' }}
+                    </td>
+
+
+                    <td>
+
+                        {% if row.payment_date %}
+                            {{ row.payment_date }}
+                        {% else %}
+                            -
+                        {% endif %}
+
+                    </td>
+
+
+                    <td>
+
+                        {% if row.created_at %}
+                            {{ row.created_at }}
+                        {% else %}
+                            -
+                        {% endif %}
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            {% else %}
+
+                <tr>
+
+                    <td
+                        colspan="14"
+                        class="no-data"
+                    >
+                        No referral income records found.
+                    </td>
+
+                </tr>
+
+            {% endif %}
+
+        </tbody>
+
+
+        <!-- =================================================
+             TOTAL
+        ================================================== -->
+
+        {% if report_data %}
+
+        <tfoot>
+
+            <tr>
+
+                <th colspan="6">
+                    TOTAL
+                </th>
+
+
+                <th class="amount">
+
+                    ₹ {{ "%.2f"|format(
+                        summary.total_investment_amount or 0
+                    ) }}
+
+                </th>
+
+
+                <th>
+                    -
+                </th>
+
+
+                <th class="amount">
+
+                    ₹ {{ "%.2f"|format(
+                        summary.total_commission_amount or 0
+                    ) }}
+
+                </th>
+
+
+                <th class="amount">
+
+                    ₹ {{ "%.2f"|format(
+                        summary.total_paid_amount or 0
+                    ) }}
+
+                </th>
+
+
+                <th class="amount">
+
+                    ₹ {{ "%.2f"|format(
+                        summary.total_washout_amount or 0
+                    ) }}
+
+                </th>
+
+
+                <th colspan="3">
+                </th>
+
+            </tr>
+
+        </tfoot>
+
+        {% endif %}
+
+    </table>
+
+</div>
+
+
+<!-- =====================================================
+     GENERATED TIME
+====================================================== -->
+
+<div class="generated-at">
+
+    Generated at:
+    {{ generated_at.strftime("%d-%m-%Y %I:%M %p") }}
+
+</div>
+```
+
+</div>
+
+</body>
+</html>
