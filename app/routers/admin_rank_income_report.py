@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 
@@ -175,7 +175,10 @@ def rank_income_report(
 # PRINT RANK INCOME REPORT
 # ==========================================================
 
-@router.get("/print", response_class=HTMLResponse)
+@router.get(
+    "/print",
+    response_class=HTMLResponse,
+)
 def print_rank_income_report(
     request: Request,
 
@@ -197,32 +200,45 @@ def print_rank_income_report(
         db.query(
             UserRankHistory,
             User,
-            RankSetting
+            RankSetting,
         )
         .join(
             User,
-            UserRankHistory.user_id == User.id
+            UserRankHistory.user_id == User.id,
         )
         .join(
             RankSetting,
-            UserRankHistory.rank_id == RankSetting.id
+            UserRankHistory.rank_id == RankSetting.id,
         )
     )
 
     # ==================================================
-    # FILTERS
+    # DATE FILTERS
     # ==================================================
 
     if start_date:
+        start_datetime = datetime.combine(
+            start_date,
+            datetime.min.time(),
+        )
+
         query = query.filter(
-            UserRankHistory.achieved_at >= start_date
+            UserRankHistory.achieved_at >= start_datetime
         )
 
     if end_date:
-        query = query.filter(
-            UserRankHistory.achieved_at
-            < end_date + timedelta(days=1)
+        end_datetime = datetime.combine(
+            end_date + timedelta(days=1),
+            datetime.min.time(),
         )
+
+        query = query.filter(
+            UserRankHistory.achieved_at < end_datetime
+        )
+
+    # ==================================================
+    # STATUS FILTER
+    # ==================================================
 
     if status:
         query = query.filter(
@@ -230,10 +246,18 @@ def print_rank_income_report(
             == (status.upper() == "PAID")
         )
 
+    # ==================================================
+    # USER FILTER
+    # ==================================================
+
     if user_id:
         query = query.filter(
             User.user_id == user_id
         )
+
+    # ==================================================
+    # RANK FILTER
+    # ==================================================
 
     if rank_id:
         query = query.filter(
@@ -259,8 +283,15 @@ def print_rank_income_report(
     report_data = []
 
     total_reward_income = Decimal("0")
+    total_paid = Decimal("0")
+    total_pending = Decimal("0")
 
     for history, user, rank in results:
+
+        user_name = (
+            f"{user.first_name or ''} "
+            f"{user.last_name or ''}"
+        ).strip()
 
         reward_income = Decimal(
             str(history.reward_income or 0)
@@ -268,9 +299,12 @@ def print_rank_income_report(
 
         total_reward_income += reward_income
 
-        user_name = (
-            f"{user.first_name} {user.last_name or ''}"
-        ).strip()
+        if history.reward_paid:
+            reward_status = "PAID"
+            total_paid += reward_income
+        else:
+            reward_status = "PENDING"
+            total_pending += reward_income
 
         report_data.append({
 
@@ -286,21 +320,13 @@ def print_rank_income_report(
 
             "rank_no": rank.rank_no,
 
-            "reward_income": (
-                history.reward_income
-            ),
+            "reward_income": history.reward_income,
 
-            "reward_paid": (
-                history.reward_paid
-            ),
+            "status": reward_status,
 
-            "achieved_at": (
-                history.achieved_at
-            ),
+            "achieved_at": history.achieved_at,
 
-            "paid_at": (
-                history.paid_at
-            ),
+            "paid_at": history.paid_at,
         })
 
     # ==================================================
@@ -308,10 +334,19 @@ def print_rank_income_report(
     # ==================================================
 
     summary = {
+
         "total_records": len(report_data),
 
         "total_reward_income": float(
             total_reward_income
+        ),
+
+        "total_paid": float(
+            total_paid
+        ),
+
+        "total_pending": float(
+            total_pending
         ),
     }
 
@@ -320,11 +355,13 @@ def print_rank_income_report(
     # ==================================================
 
     return templates.TemplateResponse(
+
         request=request,
 
         name="reports/rank_income_report.html",
 
         context={
+
             "title": "Rank Income Report",
 
             "report_data": report_data,
@@ -332,11 +369,15 @@ def print_rank_income_report(
             "summary": summary,
 
             "start_date": start_date,
+
             "end_date": end_date,
+
             "status": status,
+
             "user_id": user_id,
+
             "rank_id": rank_id,
 
             "generated_at": datetime.now(),
-        }
+        },
     )
