@@ -1,30 +1,497 @@
-{% block summary %}
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+```
+<meta charset="UTF-8">
+
+<title>
+    Rank Income Report - AurumFX
+</title>
+
+<style>
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background: #ffffff;
+        margin: 0;
+        padding: 20px;
+        color: #000;
+    }
+
+    .report-container {
+        width: 100%;
+    }
+
+    .report-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .report-header h1 {
+        margin: 0 0 12px 0;
+        font-size: 24px;
+    }
+
+    .filters {
+        text-align: center;
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .filters span {
+        margin: 0 10px;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 25px;
+    }
+
+    .summary-box {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 15px;
+        text-align: center;
+    }
+
+    .summary-label {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .summary-value {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+    }
+
+    .report-table th,
+    .report-table td {
+        border: 1px solid #333;
+        padding: 7px 6px;
+    }
+
+    .report-table th {
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .total-row td {
+        font-weight: bold;
+        border-top: 2px solid #000;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 25px !important;
+        font-weight: bold;
+    }
+
+    .generated-at {
+        margin-top: 15px;
+        text-align: right;
+        font-size: 11px;
+    }
+
+    @media print {
+
+        body {
+            padding: 0;
+        }
+
+        .report-table {
+            font-size: 9px;
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 5px;
+        }
+
+        @page {
+            size: landscape;
+            margin: 10mm;
+        }
+
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+<div class="report-container">
+
+```
+<!-- ==============================================
+     HEADER
+=============================================== -->
+
+<div class="report-header">
+
+    <h1>
+        Rank Income Report
+    </h1>
+
+    <div class="filters">
+
+        {% if start_date %}
+            <span>
+                <strong>From:</strong>
+                {{ start_date }}
+            </span>
+        {% endif %}
+
+        {% if end_date %}
+            <span>
+                <strong>To:</strong>
+                {{ end_date }}
+            </span>
+        {% endif %}
+
+        {% if status %}
+            <span>
+                <strong>Status:</strong>
+                {{ status }}
+            </span>
+        {% endif %}
+
+        {% if user_id %}
+            <span>
+                <strong>User ID:</strong>
+                {{ user_id }}
+            </span>
+        {% endif %}
+
+        {% if rank_id %}
+            <span>
+                <strong>Rank ID:</strong>
+                {{ rank_id }}
+            </span>
+        {% endif %}
+
+    </div>
+
+</div>
+
+
+<!-- ==============================================
+     SUMMARY
+=============================================== -->
 
 <div class="summary-grid">
 
+
     <div class="summary-box">
+
         <div class="summary-label">
-            Total Records
+            TOTAL RECORDS
         </div>
 
         <div class="summary-value">
             {{ summary.total_records or 0 }}
         </div>
+
     </div>
 
 
     <div class="summary-box">
+
         <div class="summary-label">
-            Total Reward Income
+            TOTAL REWARD INCOME
         </div>
 
         <div class="summary-value">
+
             ₹ {{ "%.2f"|format(
                 summary.total_reward_income or 0
             ) }}
+
         </div>
+
     </div>
+
+
+    <div class="summary-box">
+
+        <div class="summary-label">
+            TOTAL PAID
+        </div>
+
+        <div class="summary-value">
+
+            ₹ {{ "%.2f"|format(
+                summary.total_paid or 0
+            ) }}
+
+        </div>
+
+    </div>
+
+
+    <div class="summary-box">
+
+        <div class="summary-label">
+            TOTAL PENDING
+        </div>
+
+        <div class="summary-value">
+
+            ₹ {{ "%.2f"|format(
+                summary.total_pending or 0
+            ) }}
+
+        </div>
+
+    </div>
+
 
 </div>
 
-{% endblock %}
+
+<!-- ==============================================
+     REPORT TABLE
+=============================================== -->
+
+<div class="table-container">
+
+    <table class="report-table">
+
+        <thead>
+
+            <tr>
+
+                <th>#</th>
+
+                <th>
+                    User ID
+                </th>
+
+                <th>
+                    User Name
+                </th>
+
+                <th>
+                    Rank ID
+                </th>
+
+                <th>
+                    Rank
+                </th>
+
+                <th>
+                    Rank No
+                </th>
+
+                <th>
+                    Reward Income
+                </th>
+
+                <th>
+                    Status
+                </th>
+
+                <th>
+                    Achieved At
+                </th>
+
+                <th>
+                    Paid At
+                </th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {% if report_data and report_data|length > 0 %}
+
+
+                {% for item in report_data %}
+
+                <tr>
+
+
+                    <td class="text-center">
+                        {{ loop.index }}
+                    </td>
+
+
+                    <td>
+                        {{ item.user_id or '-' }}
+                    </td>
+
+
+                    <td>
+                        {{ item.user_name or '-' }}
+                    </td>
+
+
+                    <td class="text-center">
+                        {{ item.rank_id or '-' }}
+                    </td>
+
+
+                    <td>
+                        {{ item.rank_name or '-' }}
+                    </td>
+
+
+                    <td class="text-center">
+                        {{ item.rank_no or '-' }}
+                    </td>
+
+
+                    <td class="text-right">
+
+                        ₹ {{ "%.2f"|format(
+                            item.reward_income or 0
+                        ) }}
+
+                    </td>
+
+
+                    <td class="text-center">
+
+                        {{ item.status or '-' }}
+
+                    </td>
+
+
+                    <td>
+
+                        {% if item.achieved_at %}
+
+                            {{ item.achieved_at }}
+
+                        {% else %}
+
+                            -
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <td>
+
+                        {% if item.paid_at %}
+
+                            {{ item.paid_at }}
+
+                        {% else %}
+
+                            -
+
+                        {% endif %}
+
+                    </td>
+
+
+                </tr>
+
+                {% endfor %}
+
+
+                <!-- ==================================
+                     TOTAL
+                =================================== -->
+
+                <tr class="total-row">
+
+                    <td colspan="6">
+                        TOTAL
+                    </td>
+
+                    <td class="text-right">
+
+                        ₹ {{ "%.2f"|format(
+                            summary.total_reward_income or 0
+                        ) }}
+
+                    </td>
+
+                    <td colspan="3">
+                    </td>
+
+                </tr>
+
+
+            {% else %}
+
+
+                <tr>
+
+                    <td
+                        colspan="10"
+                        class="no-data"
+                    >
+
+                        No rank income records found.
+
+                    </td>
+
+                </tr>
+
+
+            {% endif %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+
+<!-- ==============================================
+     GENERATED TIME
+=============================================== -->
+
+<div class="generated-at">
+
+    Generated at:
+
+    {{ generated_at.strftime(
+        "%d-%m-%Y %I:%M %p"
+    ) }}
+
+</div>
+```
+
+</div>
+
+</body>
+
+</html>
