@@ -1,134 +1,138 @@
 {% extends "reports/base_report.html" %}
 
-
 {% block title %}
-
 Investment Report - AurumFX
-
 {% endblock %}
-
 
 {% block report_title %}
-
 Investment Report
-
 {% endblock %}
-
 
 {% block summary %}
 
 <div class="summary-grid">
 
-    <div class="summary-row">
+```
+<div class="summary-row">
 
-        <div class="summary-box">
+    <div class="summary-box">
 
-            <div class="summary-label">
-                TOTAL INVESTMENTS
-            </div>
-
-            <div class="summary-value">
-                {{ summary.total_records }}
-            </div>
-
+        <div class="summary-label">
+            TOTAL INVESTMENTS
         </div>
 
-
-        <div class="summary-box">
-
-            <div class="summary-label">
-                TOTAL INVESTMENT
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ "%.2f"|format(summary.total_amount) }}
-            </div>
-
+        <div class="summary-value">
+            {{ summary.total_records or 0 }}
         </div>
 
+    </div>
 
-        <div class="summary-box">
 
-            <div class="summary-label">
-                APPROVED
-            </div>
+    <div class="summary-box">
 
-            <div class="summary-value">
-                {{ summary.approved_count }}
-            </div>
-
+        <div class="summary-label">
+            TOTAL INVESTMENT
         </div>
 
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(
+                summary.total_amount or 0
+            ) }}
+        </div>
 
-        <div class="summary-box">
+    </div>
 
-            <div class="summary-label">
-                PENDING
-            </div>
 
-            <div class="summary-value">
-                {{ summary.pending_count }}
-            </div>
+    <div class="summary-box">
 
+        <div class="summary-label">
+            TOTAL LOTS
+        </div>
+
+        <div class="summary-value">
+            {{ summary.total_lots or 0 }}
+        </div>
+
+    </div>
+
+
+    <div class="summary-box">
+
+        <div class="summary-label">
+            APPROVED
+        </div>
+
+        <div class="summary-value">
+            {{ summary.approved_count or 0 }}
+        </div>
+
+    </div>
+
+
+    <div class="summary-box">
+
+        <div class="summary-label">
+            PENDING
+        </div>
+
+        <div class="summary-value">
+            {{ summary.pending_count or 0 }}
         </div>
 
     </div>
 
 </div>
+```
+
+</div>
 
 {% endblock %}
-
 
 {% block content %}
 
 <table class="report-table">
 
-    <thead>
+```
+<thead>
 
-        <tr>
+    <tr>
 
-            <th>#</th>
+        <th>#</th>
 
-            <th>
-                Investment ID
-            </th>
+        <th>Investment ID</th>
 
-            <th>
-                User ID
-            </th>
+        <th>User ID</th>
 
-            <th>
-                User Name
-            </th>
+        <th>User Name</th>
 
-            <th>
-                Plan
-            </th>
+        <th>Plan</th>
 
-            <th>
-                Amount
-            </th>
+        <th>Return Type</th>
 
-            <th>
-                Lots
-            </th>
+        <th>Amount</th>
 
-            <th>
-                Status
-            </th>
+        <th>Lots</th>
 
-            <th>
-                Date
-            </th>
+        <th>Monthly Return %</th>
 
-        </tr>
+        <th>Monthly Return Amount</th>
 
-    </thead>
+        <th>Investment Status</th>
+
+        <th>Approval Status</th>
+
+        <th>Investment Date</th>
+
+    </tr>
+
+</thead>
 
 
-    <tbody>
+<tbody>
 
-        {% for item in data %}
+    {% if report_data and report_data|length > 0 %}
+
+        {% for item in report_data %}
 
         <tr>
 
@@ -136,36 +140,92 @@ Investment Report
                 {{ loop.index }}
             </td>
 
-            <td>
-                {{ item.investment_id }}
-            </td>
 
             <td>
-                {{ item.user_id }}
+                {{ item.investment_id or '-' }}
             </td>
 
-            <td>
-                {{ item.user_name }}
-            </td>
 
             <td>
-                {{ item.plan_name }}
+                {{ item.user_id or '-' }}
             </td>
+
+
+            <td>
+                {{ item.user_name or '-' }}
+            </td>
+
+
+            <td>
+                {{ item.plan_name or '-' }}
+            </td>
+
+
+            <td>
+                {{ item.return_type or '-' }}
+            </td>
+
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.amount) }}
+
+                ₹ {{ "%.2f"|format(
+                    item.amount or 0
+                ) }}
+
             </td>
 
-            <td class="text-center">
-                {{ item.lots }}
-            </td>
 
             <td class="text-center">
-                {{ item.investment_status }}
+
+                {{ item.lots or 0 }}
+
             </td>
+
+
+            <td class="text-right">
+
+                {{ "%.2f"|format(
+                    item.monthly_return_percentage or 0
+                ) }}%
+
+            </td>
+
+
+            <td class="text-right">
+
+                ₹ {{ "%.2f"|format(
+                    item.monthly_return_amount or 0
+                ) }}
+
+            </td>
+
+
+            <td class="text-center">
+
+                {{ item.investment_status or '-' }}
+
+            </td>
+
+
+            <td class="text-center">
+
+                {{ item.approval_status or '-' }}
+
+            </td>
+
 
             <td>
-                {{ item.investment_date }}
+
+                {% if item.investment_date %}
+
+                    {{ item.investment_date }}
+
+                {% else %}
+
+                    -
+
+                {% endif %}
+
             </td>
 
         </tr>
@@ -173,22 +233,63 @@ Investment Report
         {% endfor %}
 
 
+        <!-- ==================================================
+             TOTAL
+        =================================================== -->
+
         <tr class="total-row">
 
-            <td colspan="5">
+            <td colspan="6">
                 TOTAL
             </td>
 
+
             <td class="text-right">
-                ₹ {{ "%.2f"|format(summary.total_amount) }}
+
+                ₹ {{ "%.2f"|format(
+                    summary.total_amount or 0
+                ) }}
+
             </td>
+
+
+            <td class="text-center">
+
+                {{ summary.total_lots or 0 }}
+
+            </td>
+
+
+            <td>
+            </td>
+
+
+            <td>
+            </td>
+
 
             <td colspan="3">
             </td>
 
         </tr>
 
-    </tbody>
+    {% else %}
+
+        <tr>
+
+            <td
+                colspan="13"
+                class="text-center"
+            >
+                No investment records found.
+            </td>
+
+        </tr>
+
+    {% endif %}
+
+</tbody>
+```
 
 </table>
 
