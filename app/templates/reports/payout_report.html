@@ -1,142 +1,89 @@
 {% extends "reports/base_report.html" %}
 
-
 {% block title %}
-
 Payout Report - AurumFX
-
 {% endblock %}
-
 
 {% block report_title %}
-
 Payout Report
-
 {% endblock %}
-
 
 {% block summary %}
 
 <div class="summary-grid">
 
-    <div class="summary-row">
+```
+<div class="summary-row">
 
-        <div class="summary-box">
-
-            <div class="summary-label">
-                TOTAL PAYOUTS
-            </div>
-
-            <div class="summary-value">
-                {{ summary.total_records }}
-            </div>
-
+    <div class="summary-box">
+        <div class="summary-label">
+            TOTAL PAYOUTS
         </div>
-
-
-        <div class="summary-box">
-
-            <div class="summary-label">
-                TOTAL INCOME
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ "%.2f"|format(summary.total_income) }}
-            </div>
-
+        <div class="summary-value">
+            {{ summary.total_records or 0 }}
         </div>
-
-
-        <div class="summary-box">
-
-            <div class="summary-label">
-                ADMIN FEE
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ "%.2f"|format(summary.total_admin_fee) }}
-            </div>
-
-        </div>
-
-
-        <div class="summary-box">
-
-            <div class="summary-label">
-                NET PAYABLE
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ "%.2f"|format(summary.total_net_payable) }}
-            </div>
-
-        </div>
-
     </div>
+
+    <div class="summary-box">
+        <div class="summary-label">
+            TOTAL INCOME
+        </div>
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(summary.total_income or 0) }}
+        </div>
+    </div>
+
+    <div class="summary-box">
+        <div class="summary-label">
+            ADMIN FEE
+        </div>
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(summary.total_admin_fee or 0) }}
+        </div>
+    </div>
+
+    <div class="summary-box">
+        <div class="summary-label">
+            NET PAYABLE
+        </div>
+        <div class="summary-value">
+            ₹ {{ "%.2f"|format(summary.total_net_payable or 0) }}
+        </div>
+    </div>
+
+</div>
+```
 
 </div>
 
 {% endblock %}
 
-
 {% block content %}
 
 <table class="report-table">
 
-    <thead>
+```
+<thead>
+    <tr>
+        <th>#</th>
+        <th>User ID</th>
+        <th>User Name</th>
+        <th>Referral</th>
+        <th>Level</th>
+        <th>Rank</th>
+        <th>Total</th>
+        <th>Admin Fee</th>
+        <th>Net Payable</th>
+        <th>Status</th>
+        <th>Paid Date</th>
+    </tr>
+</thead>
 
-        <tr>
+<tbody>
 
-            <th>#</th>
+    {% if report_data %}
 
-            <th>
-                User ID
-            </th>
-
-            <th>
-                User Name
-            </th>
-
-            <th>
-                Referral
-            </th>
-
-            <th>
-                Level
-            </th>
-
-            <th>
-                Rank
-            </th>
-
-            <th>
-                Total
-            </th>
-
-            <th>
-                Admin Fee
-            </th>
-
-            <th>
-                Net Payable
-            </th>
-
-            <th>
-                Status
-            </th>
-
-            <th>
-                Paid Date
-            </th>
-
-        </tr>
-
-    </thead>
-
-
-    <tbody>
-
-        {% for item in data %}
+        {% for item in report_data %}
 
         <tr>
 
@@ -145,74 +92,93 @@ Payout Report
             </td>
 
             <td>
-                {{ item.user_id }}
+                {{ item.user_id or '-' }}
             </td>
 
             <td>
-                {{ item.user_name }}
+                {{ item.user_name or '-' }}
             </td>
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.referral_income) }}
+                ₹ {{ "%.2f"|format(item.referral_income or 0) }}
             </td>
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.level_income) }}
+                ₹ {{ "%.2f"|format(item.level_income or 0) }}
             </td>
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.rank_income) }}
+                ₹ {{ "%.2f"|format(item.rank_income or 0) }}
             </td>
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.total_income) }}
+                ₹ {{ "%.2f"|format(item.total_income or 0) }}
             </td>
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.admin_fee) }}
+                ₹ {{ "%.2f"|format(item.admin_fee or 0) }}
             </td>
 
             <td class="text-right">
-                ₹ {{ "%.2f"|format(item.net_payable) }}
+                ₹ {{ "%.2f"|format(item.net_payable or 0) }}
             </td>
 
             <td class="text-center">
-                {{ item.status }}
+                {{ item.status or '-' }}
             </td>
 
             <td>
-                {{ item.paid_at }}
+                {% if item.paid_at %}
+                    {{ item.paid_at }}
+                {% else %}
+                    -
+                {% endif %}
             </td>
 
         </tr>
 
         {% endfor %}
 
+    {% else %}
 
-        <tr class="total-row">
-
-            <td colspan="6">
-                TOTAL
+        <tr>
+            <td colspan="11" class="no-data">
+                No payout records found.
             </td>
-
-            <td class="text-right">
-                ₹ {{ "%.2f"|format(summary.total_income) }}
-            </td>
-
-            <td class="text-right">
-                ₹ {{ "%.2f"|format(summary.total_admin_fee) }}
-            </td>
-
-            <td class="text-right">
-                ₹ {{ "%.2f"|format(summary.total_net_payable) }}
-            </td>
-
-            <td colspan="2">
-            </td>
-
         </tr>
 
-    </tbody>
+    {% endif %}
+
+
+    {% if report_data %}
+
+    <tr class="total-row">
+
+        <td colspan="6">
+            TOTAL
+        </td>
+
+        <td class="text-right">
+            ₹ {{ "%.2f"|format(summary.total_income or 0) }}
+        </td>
+
+        <td class="text-right">
+            ₹ {{ "%.2f"|format(summary.total_admin_fee or 0) }}
+        </td>
+
+        <td class="text-right">
+            ₹ {{ "%.2f"|format(summary.total_net_payable or 0) }}
+        </td>
+
+        <td colspan="2">
+        </td>
+
+    </tr>
+
+    {% endif %}
+
+</tbody>
+```
 
 </table>
 
