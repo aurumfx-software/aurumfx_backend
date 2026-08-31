@@ -186,6 +186,8 @@ def investment_report(
 # PRINT INVESTMENT REPORT
 # ==========================================================
 
+
+
 @router.get(
     "/print",
     response_class=HTMLResponse
@@ -205,9 +207,9 @@ def print_investment_report(
     admin=Depends(get_current_admin),
 ):
 
-    # --------------------------------------------------
-    # Query
-    # --------------------------------------------------
+    # ==========================================================
+    # QUERY
+    # ==========================================================
 
     query = (
         db.query(
@@ -232,52 +234,50 @@ def print_investment_report(
         )
     )
 
-    # --------------------------------------------------
-    # Filters
-    # --------------------------------------------------
+    # ==========================================================
+    # FILTERS
+    # ==========================================================
 
     if start_date:
-
         query = query.filter(
             Investment.investment_date >= start_date
         )
 
     if end_date:
+        next_day = date.fromordinal(
+            end_date.toordinal() + 1
+        )
 
         query = query.filter(
-            Investment.investment_date <= end_date
+            Investment.investment_date < next_day
         )
 
     if status:
-
         query = query.filter(
             Investment.investment_status
             == status.upper()
         )
 
     if user_id:
-
         query = query.filter(
             User.user_id == user_id
         )
 
     if investment_plan_id:
-
         query = query.filter(
             Investment.investment_plan_id
             == investment_plan_id
         )
 
     if return_type_id:
-
         query = query.filter(
             Investment.return_type_id
             == return_type_id
         )
 
-    # --------------------------------------------------
-    # Get Results
-    # --------------------------------------------------
+    # ==========================================================
+    # RESULTS
+    # ==========================================================
 
     results = (
         query
@@ -287,14 +287,18 @@ def print_investment_report(
         .all()
     )
 
-    # --------------------------------------------------
-    # Report Data
-    # --------------------------------------------------
+    # ==========================================================
+    # REPORT DATA
+    # ==========================================================
 
     report_data = []
 
     total_amount = Decimal("0")
     total_lots = 0
+
+    approved_count = 0
+    pending_count = 0
+    rejected_count = 0
 
     for (
         investment,
@@ -303,20 +307,56 @@ def print_investment_report(
         return_type
     ) in results:
 
+        # ------------------------------------------------------
+        # USER NAME
+        # ------------------------------------------------------
+
         user_name = (
             f"{user.first_name} "
             f"{user.last_name or ''}"
         ).strip()
 
+        # ------------------------------------------------------
+        # AMOUNT
+        # ------------------------------------------------------
+
         amount = Decimal(
-            str(investment.amount or 0)
+            str(
+                investment.amount or 0
+            )
         )
 
         total_amount += amount
 
+        # ------------------------------------------------------
+        # LOTS
+        # ------------------------------------------------------
+
         total_lots += (
             investment.lots or 0
         )
+
+        # ------------------------------------------------------
+        # STATUS COUNTS
+        # ------------------------------------------------------
+
+        investment_status = (
+            investment.investment_status
+            or ""
+        ).upper()
+
+        if investment_status == "APPROVED":
+            approved_count += 1
+
+        elif investment_status == "PENDING":
+            pending_count += 1
+
+        elif investment_status == "REJECTED":
+            rejected_count += 1
+
+        # ------------------------------------------------------
+        # REPORT ROW
+        # ------------------------------------------------------
 
         report_data.append({
 
@@ -363,40 +403,62 @@ def print_investment_report(
                 investment.bank_transaction_id,
         })
 
-    # --------------------------------------------------
+    # ==========================================================
     # SUMMARY
-    # --------------------------------------------------
+    # ==========================================================
 
     summary = {
-        "total_records": len(report_data),
 
-        "total_amount": float(
-            total_amount
-        ),
+        "total_records":
+            len(report_data),
 
-        "total_lots": total_lots,
+        "total_amount":
+            float(total_amount),
+
+        "total_lots":
+            total_lots,
+
+        "approved_count":
+            approved_count,
+
+        "pending_count":
+            pending_count,
+
+        "rejected_count":
+            rejected_count,
     }
 
-    # --------------------------------------------------
-    # Applied Filters
-    # --------------------------------------------------
+    # ==========================================================
+    # FILTERS
+    # ==========================================================
 
     filters = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "status": status,
-        "user_id": user_id,
+
+        "start_date":
+            start_date,
+
+        "end_date":
+            end_date,
+
+        "status":
+            status,
+
+        "user_id":
+            user_id,
+
         "investment_plan_id":
             investment_plan_id,
+
         "return_type_id":
             return_type_id,
     }
 
-    # --------------------------------------------------
-    # Template
-    # --------------------------------------------------
+    # ==========================================================
+    # TEMPLATE
+    # ==========================================================
 
     return templates.TemplateResponse(
+
         request=request,
 
         name="reports/investment_report.html",
