@@ -1,21 +1,37 @@
+{% extends "reports/base_report.html" %}
+
+{% block title %}
+Level Income Report - AurumFX
+{% endblock %}
+
+{% block report_title %}
+Level Income Report
+{% endblock %}
+
 {% block summary %}
 
 <div class="summary-grid">
 
+```
+<div class="summary-row">
+
     <div class="summary-box">
+
         <div class="summary-label">
-            Total Records
+            TOTAL RECORDS
         </div>
 
         <div class="summary-value">
             {{ summary.total_records or 0 }}
         </div>
+
     </div>
 
 
     <div class="summary-box">
+
         <div class="summary-label">
-            Total Investment
+            TOTAL INVESTMENT
         </div>
 
         <div class="summary-value">
@@ -23,12 +39,14 @@
                 summary.total_investment_amount or 0
             ) }}
         </div>
+
     </div>
 
 
     <div class="summary-box">
+
         <div class="summary-label">
-            Total Commission
+            TOTAL COMMISSION
         </div>
 
         <div class="summary-value">
@@ -36,8 +54,193 @@
                 summary.total_commission or 0
             ) }}
         </div>
+
     </div>
 
 </div>
+```
+
+</div>
+
+{% endblock %}
+
+{% block content %}
+
+<table class="report-table">
+
+```
+<thead>
+
+    <tr>
+
+        <th>#</th>
+
+        <th>Receiver ID</th>
+
+        <th>Receiver Name</th>
+
+        <th>Investment ID</th>
+
+        <th>Level</th>
+
+        <th>Investment Amount</th>
+
+        <th>Commission %</th>
+
+        <th>Commission Amount</th>
+
+        <th>Status</th>
+
+        <th>Date</th>
+
+    </tr>
+
+</thead>
+
+
+<tbody>
+
+    {% if report_data and report_data|length > 0 %}
+
+        {% for item in report_data %}
+
+        <tr>
+
+            <td class="text-center">
+                {{ loop.index }}
+            </td>
+
+
+            <td>
+                {{ item.user_id or '-' }}
+            </td>
+
+
+            <td>
+                {{ item.user_name or '-' }}
+            </td>
+
+
+            <td>
+                {{ item.investment_id or '-' }}
+            </td>
+
+
+            <td class="text-center">
+                {{ item.level or '-' }}
+            </td>
+
+
+            <td class="text-right">
+
+                ₹ {{ "%.2f"|format(
+                    item.investment_amount or 0
+                ) }}
+
+            </td>
+
+
+            <td class="text-right">
+
+                {{ "%.2f"|format(
+                    item.commission_percentage or 0
+                ) }}%
+
+            </td>
+
+
+            <td class="text-right">
+
+                ₹ {{ "%.2f"|format(
+                    item.commission_amount or 0
+                ) }}
+
+            </td>
+
+
+            <td class="text-center">
+
+                {{ item.status or '-' }}
+
+            </td>
+
+
+            <td>
+
+                {% if item.date %}
+
+                    {{ item.date }}
+
+                {% else %}
+
+                    -
+
+                {% endif %}
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+
+        <!-- =================================================
+             TOTAL
+        ================================================== -->
+
+        <tr class="total-row">
+
+            <td colspan="5">
+                TOTAL
+            </td>
+
+
+            <td class="text-right">
+
+                ₹ {{ "%.2f"|format(
+                    summary.total_investment_amount or 0
+                ) }}
+
+            </td>
+
+
+            <td>
+                -
+            </td>
+
+
+            <td class="text-right">
+
+                ₹ {{ "%.2f"|format(
+                    summary.total_commission or 0
+                ) }}
+
+            </td>
+
+
+            <td colspan="2">
+            </td>
+
+        </tr>
+
+    {% else %}
+
+        <tr>
+
+            <td
+                colspan="10"
+                class="text-center"
+            >
+                No level income records found.
+            </td>
+
+        </tr>
+
+    {% endif %}
+
+</tbody>
+```
+
+</table>
 
 {% endblock %}
