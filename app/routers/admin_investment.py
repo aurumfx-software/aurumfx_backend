@@ -169,7 +169,7 @@ def pending_investments(
         )
 
     investments = (
-        query.order_by(Investment.id.desc())
+        query.order_by(Investment.id.asc())
         .all()
     )
 
