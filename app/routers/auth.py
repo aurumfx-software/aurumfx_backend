@@ -729,63 +729,82 @@ async def upload_profile_image_api(
     }
 
 
-
 # @router.put("/profile/bank-details")
 # async def update_bank_details(
-#     # -----------------------------
-#     # Bank Details
-#     # -----------------------------
-#     bank_account: str = Form(...),
-#     bank_name: str = Form(...),
-#     ifsc: str = Form(...),
 
-#     # -----------------------------
-#     # Nominee Details
-#     # -----------------------------
-#     nominee_name: str = Form(...),
+#     # ======================================================
+#     # BANK DETAILS
+#     # ======================================================
+
+#     bank_account: str | None = Form(None),
+
+#     bank_name: str | None = Form(None),
+
+#     ifsc: str | None = Form(None),
+
+#     # ======================================================
+#     # NOMINEE DETAILS
+#     # ======================================================
+
+#     nominee_name: str | None = Form(None),
+
 #     nominee_relation: str | None = Form(None),
+
 #     nominee_gender: str | None = Form(None),
+
 #     nominee_dob: date | None = Form(None),
+
 #     nominee_address: str | None = Form(None),
-#     nominee_aadhar: str = Form(...),
-#     nominee_mobile: str = Form(...),
 
-#     # -----------------------------
-#     # Bank Proof
-#     # -----------------------------
-#     proof_document: UploadFile = File(...),
+#     nominee_aadhar: str | None = Form(None),
 
-#     # -----------------------------
-#     # Nominee Aadhaar
-#     # -----------------------------
-#     nominee_aadhar_front: UploadFile = File(...),
-#     nominee_aadhar_back: UploadFile = File(...),
+#     nominee_mobile: str | None = Form(None),
 
-#     # -----------------------------
-#     # Authentication
-#     # -----------------------------
+#     # ======================================================
+#     # BANK PROOF
+#     # ======================================================
+
+#     proof_document: UploadFile | None = File(None),
+
+#     # ======================================================
+#     # NOMINEE AADHAAR
+#     # ======================================================
+
+#     nominee_aadhar_front: UploadFile | None = File(None),
+
+#     nominee_aadhar_back: UploadFile | None = File(None),
+
+#     # ======================================================
+#     # AUTH
+#     # ======================================================
+
 #     current_user: str = Depends(get_current_user),
+
 #     db: Session = Depends(get_db),
 # ):
-#     # =================================
-#     # 1. Find logged-in user
-#     # =================================
+
+#     # ======================================================
+#     # 1. FIND USER
+#     # ======================================================
 
 #     user = (
 #         db.query(User)
-#         .filter(User.user_id == current_user)
+#         .filter(
+#             User.user_id == current_user
+#         )
 #         .first()
 #     )
 
 #     if not user:
+
 #         raise HTTPException(
 #             status_code=404,
-#             detail="User not found"
+#             detail="User not found",
 #         )
 
-#     # =================================
-#     # 2. Get existing bank details
-#     # =================================
+#     # ======================================================
+#     # 2. GET EXISTING BANK DETAILS
+#     # ======================================================
 
 #     bank_details = (
 #         db.query(UserBankDetails)
@@ -795,21 +814,229 @@ async def upload_profile_image_api(
 #         .first()
 #     )
 
-#     # =================================
-#     # 3. Validate IFSC
-#     # =================================
+#     # ======================================================
+#     # 3. CHECK WHETHER ANYTHING WAS PROVIDED
+#     # ======================================================
 
-#     # ifsc = ifsc.strip().upper()
+#     has_bank_account = (
+#         bank_account is not None
+#         and bank_account.strip() != ""
+#     )
 
-#     # if len(ifsc) != 11:
-#     #     raise HTTPException(
-#     #         status_code=400,
-#     #         detail="Invalid IFSC code"
-#     #     )
+#     has_bank_name = (
+#         bank_name is not None
+#         and bank_name.strip() != ""
+#     )
 
-#     # =================================
-#     # 4. Allowed File Types
-#     # =================================
+#     has_ifsc = (
+#         ifsc is not None
+#         and ifsc.strip() != ""
+#     )
+
+#     has_nominee_name = (
+#         nominee_name is not None
+#         and nominee_name.strip() != ""
+#     )
+
+#     has_nominee_relation = (
+#         nominee_relation is not None
+#     )
+
+#     has_nominee_gender = (
+#         nominee_gender is not None
+#     )
+
+#     has_nominee_dob = (
+#         nominee_dob is not None
+#     )
+
+#     has_nominee_address = (
+#         nominee_address is not None
+#     )
+
+#     has_nominee_aadhar = (
+#         nominee_aadhar is not None
+#         and nominee_aadhar.strip() != ""
+#     )
+
+#     has_nominee_mobile = (
+#         nominee_mobile is not None
+#         and nominee_mobile.strip() != ""
+#     )
+
+#     has_proof_document = (
+#         proof_document is not None
+#     )
+
+#     has_nominee_front = (
+#         nominee_aadhar_front is not None
+#     )
+
+#     has_nominee_back = (
+#         nominee_aadhar_back is not None
+#     )
+
+#     has_anything = any([
+#         has_bank_account,
+#         has_bank_name,
+#         has_ifsc,
+
+#         has_nominee_name,
+#         has_nominee_relation,
+#         has_nominee_gender,
+#         has_nominee_dob,
+#         has_nominee_address,
+#         has_nominee_aadhar,
+#         has_nominee_mobile,
+
+#         has_proof_document,
+#         has_nominee_front,
+#         has_nominee_back,
+#     ])
+
+#     if not has_anything:
+
+#         raise HTTPException(
+#             status_code=400,
+#             detail=(
+#                 "Please provide at least one "
+#                 "bank or nominee field to update."
+#             ),
+#         )
+
+#     # ======================================================
+#     # 4. TRACK NEW FILES
+#     # ======================================================
+
+#     new_proof_key = None
+
+#     new_nominee_front_key = None
+
+#     new_nominee_back_key = None
+
+#     # ======================================================
+#     # 5. TRACK OLD FILES
+#     # ======================================================
+
+#     old_proof_key = None
+
+#     old_nominee_front_key = None
+
+#     old_nominee_back_key = None
+
+#     # ======================================================
+#     # 6. CREATE BANK DETAILS IF NOT EXISTS
+#     # ======================================================
+
+#     if not bank_details:
+
+#         bank_details = UserBankDetails(
+#             user_id=user.id,
+#             status="PENDING",
+#             rejection_reason=None,
+#         )
+
+#         db.add(bank_details)
+
+#         # Flush so SQLAlchemy assigns the ID
+#         db.flush()
+
+#     # ======================================================
+#     # 7. FIRST SUBMISSION
+#     # ======================================================
+#     #
+#     # If this is a completely new bank-details record,
+#     # require the important initial fields.
+#     #
+#     # Existing records can be partially updated.
+#     # ======================================================
+
+#     is_first_submission = (
+#         bank_details.bank_account is None
+#         and bank_details.bank_name is None
+#         and bank_details.ifsc is None
+#         and bank_details.bank_proof is None
+#         and bank_details.nominee_name is None
+#         and bank_details.nominee_aadhar is None
+#         and bank_details.nominee_mobile is None
+#         and bank_details.nominee_aadhar_front is None
+#         and bank_details.nominee_aadhar_back is None
+#     )
+
+#     if is_first_submission:
+
+#         if not has_bank_account:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Bank account is required.",
+#             )
+
+#         if not has_bank_name:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Bank name is required.",
+#             )
+
+#         if not has_ifsc:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="IFSC is required.",
+#             )
+
+#         if not has_nominee_name:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Nominee name is required.",
+#             )
+
+#         if not has_nominee_aadhar:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Nominee Aadhaar is required.",
+#             )
+
+#         if not has_nominee_mobile:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Nominee mobile is required.",
+#             )
+
+#         if not has_proof_document:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Bank proof document is required.",
+#             )
+
+#         if not has_nominee_front:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar front "
+#                     "document is required."
+#                 ),
+#             )
+
+#         if not has_nominee_back:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar back "
+#                     "document is required."
+#                 ),
+#             )
+
+#     # ======================================================
+#     # 8. ALLOWED FILE TYPES
+#     # ======================================================
 
 #     allowed_types = {
 #         "image/jpeg": ".jpg",
@@ -819,225 +1046,473 @@ async def upload_profile_image_api(
 
 #     max_size = 5 * 1024 * 1024
 
-#     # =================================
-#     # 5. Validate Bank Proof
-#     # =================================
+#     # ======================================================
+#     # 9. BANK PROOF
+#     # ======================================================
 
-#     if proof_document.content_type not in allowed_types:
-#         raise HTTPException(
-#             status_code=400,
-#             detail=(
-#                 "Only JPG, PNG and PDF bank proof "
-#                 "documents are allowed"
+#     if has_proof_document:
+
+#         if (
+#             proof_document.content_type
+#             not in allowed_types
+#         ):
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Only JPG, PNG and PDF bank proof "
+#                     "documents are allowed."
+#                 ),
 #             )
+
+#         bank_proof_content = (
+#             await proof_document.read()
 #         )
 
-#     bank_proof_content = await proof_document.read()
+#         if len(bank_proof_content) > max_size:
 
-#     if len(bank_proof_content) > max_size:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Bank proof document must be less than 5 MB"
-#         )
-
-#     # =================================
-#     # 6. Validate Nominee Aadhaar Front
-#     # =================================
-
-#     if nominee_aadhar_front.content_type not in allowed_types:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Nominee Aadhaar front must be JPG, PNG or PDF"
-#         )
-
-#     nominee_front_content = (
-#         await nominee_aadhar_front.read()
-#     )
-
-#     if len(nominee_front_content) > max_size:
-#         raise HTTPException(
-#             status_code=400,
-#             detail=(
-#                 "Nominee Aadhaar front must be "
-#                 "less than 5 MB"
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Bank proof document must be "
+#                     "less than 5 MB."
+#                 ),
 #             )
+
+#         # --------------------------------------------------
+#         # SAVE OLD KEY
+#         # --------------------------------------------------
+
+#         old_proof_key = (
+#             bank_details.bank_proof
 #         )
 
-#     # =================================
-#     # 7. Validate Nominee Aadhaar Back
-#     # =================================
+#         # --------------------------------------------------
+#         # EXTENSION
+#         # --------------------------------------------------
 
-#     if nominee_aadhar_back.content_type not in allowed_types:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Nominee Aadhaar back must be JPG, PNG or PDF"
+#         extension = allowed_types[
+#             proof_document.content_type
+#         ]
+
+#         # --------------------------------------------------
+#         # FILENAME
+#         # --------------------------------------------------
+
+#         filename = (
+#             f"{user.user_id}_bank_proof"
+#             f"{extension}"
 #         )
 
-#     nominee_back_content = (
-#         await nominee_aadhar_back.read()
-#     )
+#         # --------------------------------------------------
+#         # UPLOAD
+#         # --------------------------------------------------
 
-#     if len(nominee_back_content) > max_size:
-#         raise HTTPException(
-#             status_code=400,
-#             detail=(
-#                 "Nominee Aadhaar back must be "
-#                 "less than 5 MB"
+#         try:
+
+#             new_proof_key = upload_bank_proof(
+#                 file_content=bank_proof_content,
+#                 filename=filename,
+#                 content_type=(
+#                     proof_document.content_type
+#                 ),
 #             )
+
+#         except Exception as exc:
+
+#             raise HTTPException(
+#                 status_code=500,
+#                 detail=(
+#                     "Failed to upload bank proof: "
+#                     f"{str(exc)}"
+#                 ),
+#             )
+
+#         # --------------------------------------------------
+#         # UPDATE
+#         # --------------------------------------------------
+
+#         bank_details.bank_proof = (
+#             new_proof_key
 #         )
 
-#     # =================================
-#     # 8. Generate Extensions
-#     # =================================
+#     # ======================================================
+#     # 10. NOMINEE AADHAAR FRONT
+#     # ======================================================
 
-#     bank_extension = allowed_types[
-#         proof_document.content_type
-#     ]
+#     if has_nominee_front:
 
-#     nominee_front_extension = allowed_types[
-#         nominee_aadhar_front.content_type
-#     ]
+#         if (
+#             nominee_aadhar_front.content_type
+#             not in allowed_types
+#         ):
 
-#     nominee_back_extension = allowed_types[
-#         nominee_aadhar_back.content_type
-#     ]
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar front must be "
+#                     "JPG, PNG or PDF."
+#                 ),
+#             )
 
-#     # =================================
-#     # 9. Generate Filenames
-#     # =================================
-
-#     bank_filename = (
-#         f"{user.user_id}_bank_proof{bank_extension}"
-#     )
-
-#     nominee_front_filename = (
-#         f"{user.user_id}_nominee_aadhar_front"
-#         f"{nominee_front_extension}"
-#     )
-
-#     nominee_back_filename = (
-#         f"{user.user_id}_nominee_aadhar_back"
-#         f"{nominee_back_extension}"
-#     )
-
-#     # =================================
-#     # 10. Upload Bank Proof
-#     # =================================
-
-#     proof_key = upload_bank_proof(
-#         file_content=bank_proof_content,
-#         filename=bank_filename,
-#         content_type=proof_document.content_type,
-#     )
-
-#     # =================================
-#     # 11. Upload Nominee Aadhaar Front
-#     # =================================
-
-#     nominee_front_key = upload_bank_proof(
-#         file_content=nominee_front_content,
-#         filename=nominee_front_filename,
-#         content_type=nominee_aadhar_front.content_type,
-#     )
-
-#     # =================================
-#     # 12. Upload Nominee Aadhaar Back
-#     # =================================
-
-#     nominee_back_key = upload_bank_proof(
-#         file_content=nominee_back_content,
-#         filename=nominee_back_filename,
-#         content_type=nominee_aadhar_back.content_type,
-#     )
-
-#     # =================================
-#     # 13. Create or Update Bank Details
-#     # =================================
-
-#     if not bank_details:
-
-#         bank_details = UserBankDetails(
-#             user_id=user.id,
-#             status="PENDING",
+#         nominee_front_content = (
+#             await nominee_aadhar_front.read()
 #         )
 
-#         db.add(bank_details)
+#         if len(nominee_front_content) > max_size:
 
-#     # =================================
-#     # 14. Update Bank Details
-#     # =================================
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar front must be "
+#                     "less than 5 MB."
+#                 ),
+#             )
 
-#     bank_details.bank_account = (
-#         bank_account.strip()
-#     )
+#         # --------------------------------------------------
+#         # SAVE OLD
+#         # --------------------------------------------------
 
-#     bank_details.bank_name = (
-#         bank_name.strip()
-#     )
+#         old_nominee_front_key = (
+#             bank_details.nominee_aadhar_front
+#         )
 
-#     bank_details.ifsc = ifsc
+#         # --------------------------------------------------
+#         # EXTENSION
+#         # --------------------------------------------------
 
-#     bank_details.bank_proof = proof_key
+#         extension = allowed_types[
+#             nominee_aadhar_front.content_type
+#         ]
 
-#     # =================================
-#     # 15. Update Nominee Details
-#     # =================================
+#         # --------------------------------------------------
+#         # FILENAME
+#         # --------------------------------------------------
 
-#     bank_details.nominee_name = (
-#         nominee_name.strip()
-#     )
+#         filename = (
+#             f"{user.user_id}_nominee_aadhar_front"
+#             f"{extension}"
+#         )
 
-#     bank_details.nominee_relation = (
-#         nominee_relation.strip()
-#         if nominee_relation
-#         else None
-#     )
+#         # --------------------------------------------------
+#         # UPLOAD
+#         # --------------------------------------------------
 
-#     bank_details.nominee_gender = (
-#         nominee_gender.strip()
-#         if nominee_gender
-#         else None
-#     )
+#         try:
 
-#     bank_details.nominee_dob = nominee_dob
+#             new_nominee_front_key = (
+#                 upload_bank_proof(
+#                     file_content=(
+#                         nominee_front_content
+#                     ),
+#                     filename=filename,
+#                     content_type=(
+#                         nominee_aadhar_front.content_type
+#                     ),
+#                 )
+#             )
 
-#     bank_details.nominee_address = (
-#         nominee_address.strip()
-#         if nominee_address
-#         else None
-#     )
+#         except Exception as exc:
 
-#     bank_details.nominee_aadhar = (
-#         nominee_aadhar.strip()
-#     )
+#             if new_proof_key:
 
-#     bank_details.nominee_mobile = (
-#         nominee_mobile.strip()
-#     )
+#                 delete_spaces_object(
+#                     new_proof_key
+#                 )
 
-#     # =================================
-#     # 16. Save Nominee Aadhaar Documents
-#     # =================================
+#             raise HTTPException(
+#                 status_code=500,
+#                 detail=(
+#                     "Failed to upload nominee "
+#                     "Aadhaar front: "
+#                     f"{str(exc)}"
+#                 ),
+#             )
 
-#     bank_details.nominee_aadhar_front = (
-#         nominee_front_key
-#     )
+#         # --------------------------------------------------
+#         # UPDATE
+#         # --------------------------------------------------
 
-#     bank_details.nominee_aadhar_back = (
-#         nominee_back_key
-#     )
+#         bank_details.nominee_aadhar_front = (
+#             new_nominee_front_key
+#         )
 
-#     # =================================
-#     # 17. Reset Status
-#     # =================================
+#     # ======================================================
+#     # 11. NOMINEE AADHAAR BACK
+#     # ======================================================
+
+#     if has_nominee_back:
+
+#         if (
+#             nominee_aadhar_back.content_type
+#             not in allowed_types
+#         ):
+
+#             if new_proof_key:
+#                 delete_spaces_object(
+#                     new_proof_key
+#                 )
+
+#             if new_nominee_front_key:
+#                 delete_spaces_object(
+#                     new_nominee_front_key
+#                 )
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar back must be "
+#                     "JPG, PNG or PDF."
+#                 ),
+#             )
+
+#         nominee_back_content = (
+#             await nominee_aadhar_back.read()
+#         )
+
+#         if len(nominee_back_content) > max_size:
+
+#             if new_proof_key:
+#                 delete_spaces_object(
+#                     new_proof_key
+#                 )
+
+#             if new_nominee_front_key:
+#                 delete_spaces_object(
+#                     new_nominee_front_key
+#                 )
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar back must be "
+#                     "less than 5 MB."
+#                 ),
+#             )
+
+#         # --------------------------------------------------
+#         # SAVE OLD
+#         # --------------------------------------------------
+
+#         old_nominee_back_key = (
+#             bank_details.nominee_aadhar_back
+#         )
+
+#         # --------------------------------------------------
+#         # EXTENSION
+#         # --------------------------------------------------
+
+#         extension = allowed_types[
+#             nominee_aadhar_back.content_type
+#         ]
+
+#         # --------------------------------------------------
+#         # FILENAME
+#         # --------------------------------------------------
+
+#         filename = (
+#             f"{user.user_id}_nominee_aadhar_back"
+#             f"{extension}"
+#         )
+
+#         # --------------------------------------------------
+#         # UPLOAD
+#         # --------------------------------------------------
+
+#         try:
+
+#             new_nominee_back_key = (
+#                 upload_bank_proof(
+#                     file_content=(
+#                         nominee_back_content
+#                     ),
+#                     filename=filename,
+#                     content_type=(
+#                         nominee_aadhar_back.content_type
+#                     ),
+#                 )
+#             )
+
+#         except Exception as exc:
+
+#             if new_proof_key:
+#                 delete_spaces_object(
+#                     new_proof_key
+#                 )
+
+#             if new_nominee_front_key:
+#                 delete_spaces_object(
+#                     new_nominee_front_key
+#                 )
+
+#             raise HTTPException(
+#                 status_code=500,
+#                 detail=(
+#                     "Failed to upload nominee "
+#                     "Aadhaar back: "
+#                     f"{str(exc)}"
+#                 ),
+#             )
+
+#         # --------------------------------------------------
+#         # UPDATE
+#         # --------------------------------------------------
+
+#         bank_details.nominee_aadhar_back = (
+#             new_nominee_back_key
+#         )
+
+#     # ======================================================
+#     # 12. UPDATE BANK ACCOUNT
+#     # ======================================================
+
+#     if has_bank_account:
+
+#         bank_details.bank_account = (
+#             bank_account.strip()
+#         )
+
+#     # ======================================================
+#     # 13. UPDATE BANK NAME
+#     # ======================================================
+
+#     if has_bank_name:
+
+#         bank_details.bank_name = (
+#             bank_name.strip()
+#         )
+
+#     # ======================================================
+#     # 14. UPDATE IFSC
+#     # ======================================================
+
+#     if has_ifsc:
+
+#         bank_details.ifsc = (
+#             ifsc.strip().upper()
+#         )
+
+#     # ======================================================
+#     # 15. UPDATE NOMINEE NAME
+#     # ======================================================
+
+#     if has_nominee_name:
+
+#         bank_details.nominee_name = (
+#             nominee_name.strip()
+#         )
+
+#     # ======================================================
+#     # 16. UPDATE NOMINEE RELATION
+#     # ======================================================
+
+#     if has_nominee_relation:
+
+#         bank_details.nominee_relation = (
+#             nominee_relation.strip()
+#             if nominee_relation.strip()
+#             else None
+#         )
+
+#     # ======================================================
+#     # 17. UPDATE NOMINEE GENDER
+#     # ======================================================
+
+#     if has_nominee_gender:
+
+#         bank_details.nominee_gender = (
+#             nominee_gender.strip()
+#             if nominee_gender.strip()
+#             else None
+#         )
+
+#     # ======================================================
+#     # 18. UPDATE NOMINEE DOB
+#     # ======================================================
+
+#     if has_nominee_dob:
+
+#         bank_details.nominee_dob = (
+#             nominee_dob
+#         )
+
+#     # ======================================================
+#     # 19. UPDATE NOMINEE ADDRESS
+#     # ======================================================
+
+#     if has_nominee_address:
+
+#         bank_details.nominee_address = (
+#             nominee_address.strip()
+#             if nominee_address.strip()
+#             else None
+#         )
+
+#     # ======================================================
+#     # 20. UPDATE NOMINEE AADHAAR
+#     # ======================================================
+
+#     if has_nominee_aadhar:
+
+#         normalized_nominee_aadhar = (
+#             nominee_aadhar
+#             .replace(" ", "")
+#             .strip()
+#         )
+
+#         if (
+#             not normalized_nominee_aadhar.isdigit()
+#             or len(normalized_nominee_aadhar) != 12
+#         ):
+
+#             if new_proof_key:
+#                 delete_spaces_object(
+#                     new_proof_key
+#                 )
+
+#             if new_nominee_front_key:
+#                 delete_spaces_object(
+#                     new_nominee_front_key
+#                 )
+
+#             if new_nominee_back_key:
+#                 delete_spaces_object(
+#                     new_nominee_back_key
+#                 )
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Nominee Aadhaar number must "
+#                     "contain exactly 12 digits."
+#                 ),
+#             )
+
+#         bank_details.nominee_aadhar = (
+#             normalized_nominee_aadhar
+#         )
+
+#     # ======================================================
+#     # 21. UPDATE NOMINEE MOBILE
+#     # ======================================================
+
+#     if has_nominee_mobile:
+
+#         bank_details.nominee_mobile = (
+#             nominee_mobile.strip()
+#         )
+
+#     # ======================================================
+#     # 22. RESET STATUS
+#     # ======================================================
 
 #     bank_details.status = "PENDING"
 
 #     bank_details.rejection_reason = None
 
-#     # =================================
-#     # 18. Save
-#     # =================================
+#     # ======================================================
+#     # 23. SAVE DATABASE
+#     # ======================================================
 
 #     try:
 
@@ -1045,52 +1520,141 @@ async def upload_profile_image_api(
 
 #         db.refresh(bank_details)
 
-#     except Exception as e:
+#     except Exception as exc:
 
 #         db.rollback()
 
+#         # ----------------------------------------------
+#         # DELETE NEW UPLOADS
+#         # ----------------------------------------------
+
+#         if new_proof_key:
+
+#             delete_spaces_object(
+#                 new_proof_key
+#             )
+
+#         if new_nominee_front_key:
+
+#             delete_spaces_object(
+#                 new_nominee_front_key
+#             )
+
+#         if new_nominee_back_key:
+
+#             delete_spaces_object(
+#                 new_nominee_back_key
+#             )
+
 #         raise HTTPException(
 #             status_code=500,
-#             detail=f"Failed to update bank details: {str(e)}"
+#             detail=(
+#                 "Failed to update bank details: "
+#                 f"{str(exc)}"
+#             ),
 #         )
 
-#     # =================================
-#     # 19. Response
-#     # =================================
+#     # ======================================================
+#     # 24. DELETE OLD FILES
+#     # ======================================================
+
+#     if old_proof_key:
+
+#         delete_spaces_object(
+#             old_proof_key
+#         )
+
+#     if old_nominee_front_key:
+
+#         delete_spaces_object(
+#             old_nominee_front_key
+#         )
+
+#     if old_nominee_back_key:
+
+#         delete_spaces_object(
+#             old_nominee_back_key
+#         )
+
+#     # ======================================================
+#     # 25. RESPONSE
+#     # ======================================================
 
 #     return {
-#         "message": "Bank and nominee details updated successfully",
+
+#         "message": (
+#             "Bank and nominee details "
+#             "updated successfully."
+#         ),
 
 #         "bank_details": {
+
 #             "id": bank_details.id,
-#             "bank_account": bank_details.bank_account,
-#             "bank_name": bank_details.bank_name,
-#             "ifsc": bank_details.ifsc,
-#             "bank_proof": bank_details.bank_proof,
-#             "status": bank_details.status,
-#             "rejection_reason": bank_details.rejection_reason,
+
+#             "bank_account": (
+#                 bank_details.bank_account
+#             ),
+
+#             "bank_name": (
+#                 bank_details.bank_name
+#             ),
+
+#             "ifsc": (
+#                 bank_details.ifsc
+#             ),
+
+#             "bank_proof": (
+#                 bank_details.bank_proof
+#             ),
+
+#             "status": (
+#                 bank_details.status
+#             ),
+
+#             "rejection_reason": (
+#                 bank_details.rejection_reason
+#             ),
 #         },
 
 #         "nominee_details": {
-#             "nominee_name": bank_details.nominee_name,
-#             "nominee_relation": bank_details.nominee_relation,
-#             "nominee_gender": bank_details.nominee_gender,
-#             "nominee_dob": bank_details.nominee_dob,
-#             "nominee_address": bank_details.nominee_address,
-#             "nominee_aadhar": bank_details.nominee_aadhar,
-#             "nominee_mobile": bank_details.nominee_mobile,
+
+#             "nominee_name": (
+#                 bank_details.nominee_name
+#             ),
+
+#             "nominee_relation": (
+#                 bank_details.nominee_relation
+#             ),
+
+#             "nominee_gender": (
+#                 bank_details.nominee_gender
+#             ),
+
+#             "nominee_dob": (
+#                 bank_details.nominee_dob
+#             ),
+
+#             "nominee_address": (
+#                 bank_details.nominee_address
+#             ),
+
+#             "nominee_aadhar": (
+#                 bank_details.nominee_aadhar
+#             ),
+
+#             "nominee_mobile": (
+#                 bank_details.nominee_mobile
+#             ),
+
 #             "nominee_aadhar_front": (
 #                 bank_details.nominee_aadhar_front
 #             ),
+
 #             "nominee_aadhar_back": (
 #                 bank_details.nominee_aadhar_back
 #             ),
 #         },
 #     }
-
-# ==========================================================
-# UPDATE BANK + NOMINEE DETAILS
-# ==========================================================
 
 @router.put("/profile/bank-details")
 async def update_bank_details(
@@ -1100,28 +1664,8 @@ async def update_bank_details(
     # ======================================================
 
     bank_account: str | None = Form(None),
-
     bank_name: str | None = Form(None),
-
     ifsc: str | None = Form(None),
-
-    # ======================================================
-    # NOMINEE DETAILS
-    # ======================================================
-
-    nominee_name: str | None = Form(None),
-
-    nominee_relation: str | None = Form(None),
-
-    nominee_gender: str | None = Form(None),
-
-    nominee_dob: date | None = Form(None),
-
-    nominee_address: str | None = Form(None),
-
-    nominee_aadhar: str | None = Form(None),
-
-    nominee_mobile: str | None = Form(None),
 
     # ======================================================
     # BANK PROOF
@@ -1130,19 +1674,10 @@ async def update_bank_details(
     proof_document: UploadFile | None = File(None),
 
     # ======================================================
-    # NOMINEE AADHAAR
-    # ======================================================
-
-    nominee_aadhar_front: UploadFile | None = File(None),
-
-    nominee_aadhar_back: UploadFile | None = File(None),
-
-    # ======================================================
     # AUTH
     # ======================================================
 
     current_user: str = Depends(get_current_user),
-
     db: Session = Depends(get_db),
 ):
 
@@ -1152,21 +1687,18 @@ async def update_bank_details(
 
     user = (
         db.query(User)
-        .filter(
-            User.user_id == current_user
-        )
+        .filter(User.user_id == current_user)
         .first()
     )
 
     if not user:
-
         raise HTTPException(
             status_code=404,
             detail="User not found",
         )
 
     # ======================================================
-    # 2. GET EXISTING BANK DETAILS
+    # 2. GET BANK DETAILS
     # ======================================================
 
     bank_details = (
@@ -1178,7 +1710,7 @@ async def update_bank_details(
     )
 
     # ======================================================
-    # 3. CHECK WHETHER ANYTHING WAS PROVIDED
+    # 3. CHECK INPUT
     # ======================================================
 
     has_bank_account = (
@@ -1196,99 +1728,23 @@ async def update_bank_details(
         and ifsc.strip() != ""
     )
 
-    has_nominee_name = (
-        nominee_name is not None
-        and nominee_name.strip() != ""
-    )
-
-    has_nominee_relation = (
-        nominee_relation is not None
-    )
-
-    has_nominee_gender = (
-        nominee_gender is not None
-    )
-
-    has_nominee_dob = (
-        nominee_dob is not None
-    )
-
-    has_nominee_address = (
-        nominee_address is not None
-    )
-
-    has_nominee_aadhar = (
-        nominee_aadhar is not None
-        and nominee_aadhar.strip() != ""
-    )
-
-    has_nominee_mobile = (
-        nominee_mobile is not None
-        and nominee_mobile.strip() != ""
-    )
-
     has_proof_document = (
         proof_document is not None
     )
 
-    has_nominee_front = (
-        nominee_aadhar_front is not None
-    )
-
-    has_nominee_back = (
-        nominee_aadhar_back is not None
-    )
-
-    has_anything = any([
+    if not any([
         has_bank_account,
         has_bank_name,
         has_ifsc,
-
-        has_nominee_name,
-        has_nominee_relation,
-        has_nominee_gender,
-        has_nominee_dob,
-        has_nominee_address,
-        has_nominee_aadhar,
-        has_nominee_mobile,
-
         has_proof_document,
-        has_nominee_front,
-        has_nominee_back,
-    ])
-
-    if not has_anything:
-
+    ]):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Please provide at least one "
-                "bank or nominee field to update."
-            ),
+            detail="Please provide at least one bank field to update.",
         )
 
     # ======================================================
-    # 4. TRACK NEW FILES
-    # ======================================================
-
-    new_proof_key = None
-
-    new_nominee_front_key = None
-
-    new_nominee_back_key = None
-
-    # ======================================================
-    # 5. TRACK OLD FILES
-    # ======================================================
-
-    old_proof_key = None
-
-    old_nominee_front_key = None
-
-    old_nominee_back_key = None
-
-    # ======================================================
-    # 6. CREATE BANK DETAILS IF NOT EXISTS
+    # 4. CREATE RECORD IF NOT EXISTS
     # ======================================================
 
     if not bank_details:
@@ -1300,105 +1756,47 @@ async def update_bank_details(
         )
 
         db.add(bank_details)
-
-        # Flush so SQLAlchemy assigns the ID
         db.flush()
 
     # ======================================================
-    # 7. FIRST SUBMISSION
-    # ======================================================
-    #
-    # If this is a completely new bank-details record,
-    # require the important initial fields.
-    #
-    # Existing records can be partially updated.
+    # 5. CHECK FIRST BANK SUBMISSION
     # ======================================================
 
-    is_first_submission = (
+    is_first_bank_submission = (
         bank_details.bank_account is None
         and bank_details.bank_name is None
         and bank_details.ifsc is None
         and bank_details.bank_proof is None
-        and bank_details.nominee_name is None
-        and bank_details.nominee_aadhar is None
-        and bank_details.nominee_mobile is None
-        and bank_details.nominee_aadhar_front is None
-        and bank_details.nominee_aadhar_back is None
     )
 
-    if is_first_submission:
+    if is_first_bank_submission:
 
         if not has_bank_account:
-
             raise HTTPException(
                 status_code=400,
                 detail="Bank account is required.",
             )
 
         if not has_bank_name:
-
             raise HTTPException(
                 status_code=400,
                 detail="Bank name is required.",
             )
 
         if not has_ifsc:
-
             raise HTTPException(
                 status_code=400,
                 detail="IFSC is required.",
             )
 
-        if not has_nominee_name:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Nominee name is required.",
-            )
-
-        if not has_nominee_aadhar:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Nominee Aadhaar is required.",
-            )
-
-        if not has_nominee_mobile:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Nominee mobile is required.",
-            )
-
         if not has_proof_document:
-
             raise HTTPException(
                 status_code=400,
                 detail="Bank proof document is required.",
             )
 
-        if not has_nominee_front:
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Nominee Aadhaar front "
-                    "document is required."
-                ),
-            )
-
-        if not has_nominee_back:
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Nominee Aadhaar back "
-                    "document is required."
-                ),
-            )
-
     # ======================================================
-    # 8. ALLOWED FILE TYPES
+    # 6. FILE SETTINGS
     # ======================================================
 
     allowed_types = {
@@ -1409,16 +1807,16 @@ async def update_bank_details(
 
     max_size = 5 * 1024 * 1024
 
+    new_proof_key = None
+    old_proof_key = None
+
     # ======================================================
-    # 9. BANK PROOF
+    # 7. UPLOAD BANK PROOF
     # ======================================================
 
     if has_proof_document:
 
-        if (
-            proof_document.content_type
-            not in allowed_types
-        ):
+        if proof_document.content_type not in allowed_types:
 
             raise HTTPException(
                 status_code=400,
@@ -1428,27 +1826,20 @@ async def update_bank_details(
                 ),
             )
 
-        bank_proof_content = (
-            await proof_document.read()
-        )
+        content = await proof_document.read()
 
-        if len(bank_proof_content) > max_size:
+        if len(content) > max_size:
 
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Bank proof document must be "
-                    "less than 5 MB."
-                ),
+                detail="Bank proof document must be less than 5 MB.",
             )
 
         # --------------------------------------------------
-        # SAVE OLD KEY
+        # OLD FILE
         # --------------------------------------------------
 
-        old_proof_key = (
-            bank_details.bank_proof
-        )
+        old_proof_key = bank_details.bank_proof
 
         # --------------------------------------------------
         # EXTENSION
@@ -1474,11 +1865,9 @@ async def update_bank_details(
         try:
 
             new_proof_key = upload_bank_proof(
-                file_content=bank_proof_content,
+                file_content=content,
                 filename=filename,
-                content_type=(
-                    proof_document.content_type
-                ),
+                content_type=proof_document.content_type,
             )
 
         except Exception as exc:
@@ -1491,24 +1880,323 @@ async def update_bank_details(
                 ),
             )
 
-        # --------------------------------------------------
-        # UPDATE
-        # --------------------------------------------------
+        bank_details.bank_proof = new_proof_key
 
-        bank_details.bank_proof = (
-            new_proof_key
+    # ======================================================
+    # 8. UPDATE BANK ACCOUNT
+    # ======================================================
+
+    if has_bank_account:
+
+        bank_details.bank_account = (
+            bank_account.strip()
         )
 
     # ======================================================
-    # 10. NOMINEE AADHAAR FRONT
+    # 9. UPDATE BANK NAME
+    # ======================================================
+
+    if has_bank_name:
+
+        bank_details.bank_name = (
+            bank_name.strip()
+        )
+
+    # ======================================================
+    # 10. UPDATE IFSC
+    # ======================================================
+
+    if has_ifsc:
+
+        bank_details.ifsc = (
+            ifsc.strip().upper()
+        )
+
+    # ======================================================
+    # 11. RESET APPROVAL STATUS
+    # ======================================================
+
+    bank_details.status = "PENDING"
+    bank_details.rejection_reason = None
+
+    # ======================================================
+    # 12. SAVE
+    # ======================================================
+
+    try:
+
+        db.commit()
+        db.refresh(bank_details)
+
+    except Exception as exc:
+
+        db.rollback()
+
+        if new_proof_key:
+            delete_spaces_object(new_proof_key)
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to update bank details: "
+                f"{str(exc)}"
+            ),
+        )
+
+    # ======================================================
+    # 13. DELETE OLD FILE
+    # ======================================================
+
+    if old_proof_key and old_proof_key != new_proof_key:
+
+        try:
+            delete_spaces_object(old_proof_key)
+        except Exception:
+            pass
+
+    # ======================================================
+    # 14. RESPONSE
+    # ======================================================
+
+    return {
+
+        "message": "Bank details updated successfully.",
+
+        "bank_details": {
+
+            "id": bank_details.id,
+
+            "bank_account": bank_details.bank_account,
+
+            "bank_name": bank_details.bank_name,
+
+            "ifsc": bank_details.ifsc,
+
+            "bank_proof": bank_details.bank_proof,
+
+            "status": bank_details.status,
+
+            "rejection_reason": bank_details.rejection_reason,
+        },
+    }
+
+
+@router.put("/profile/nominee-details")
+async def update_nominee_details(
+
+    # ======================================================
+    # NOMINEE DETAILS
+    # ======================================================
+
+    nominee_name: str | None = Form(None),
+    nominee_relation: str | None = Form(None),
+    nominee_gender: str | None = Form(None),
+    nominee_dob: date | None = Form(None),
+    nominee_address: str | None = Form(None),
+    nominee_aadhar: str | None = Form(None),
+    nominee_mobile: str | None = Form(None),
+
+    # ======================================================
+    # NOMINEE AADHAAR DOCUMENTS
+    # ======================================================
+
+    nominee_aadhar_front: UploadFile | None = File(None),
+    nominee_aadhar_back: UploadFile | None = File(None),
+
+    # ======================================================
+    # AUTH
+    # ======================================================
+
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    # ======================================================
+    # 1. FIND USER
+    # ======================================================
+
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    # ======================================================
+    # 2. GET BANK DETAILS RECORD
+    # ======================================================
+
+    bank_details = (
+        db.query(UserBankDetails)
+        .filter(
+            UserBankDetails.user_id == user.id
+        )
+        .first()
+    )
+
+    # ======================================================
+    # 3. CHECK INPUT
+    # ======================================================
+
+    has_nominee_name = (
+        nominee_name is not None
+        and nominee_name.strip() != ""
+    )
+
+    has_nominee_relation = (
+        nominee_relation is not None
+        and nominee_relation.strip() != ""
+    )
+
+    has_nominee_gender = (
+        nominee_gender is not None
+        and nominee_gender.strip() != ""
+    )
+
+    has_nominee_dob = (
+        nominee_dob is not None
+    )
+
+    has_nominee_address = (
+        nominee_address is not None
+        and nominee_address.strip() != ""
+    )
+
+    has_nominee_aadhar = (
+        nominee_aadhar is not None
+        and nominee_aadhar.strip() != ""
+    )
+
+    has_nominee_mobile = (
+        nominee_mobile is not None
+        and nominee_mobile.strip() != ""
+    )
+
+    has_nominee_front = (
+        nominee_aadhar_front is not None
+    )
+
+    has_nominee_back = (
+        nominee_aadhar_back is not None
+    )
+
+    if not any([
+        has_nominee_name,
+        has_nominee_relation,
+        has_nominee_gender,
+        has_nominee_dob,
+        has_nominee_address,
+        has_nominee_aadhar,
+        has_nominee_mobile,
+        has_nominee_front,
+        has_nominee_back,
+    ]):
+
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide at least one nominee field to update.",
+        )
+
+    # ======================================================
+    # 4. CREATE RECORD IF NOT EXISTS
+    # ======================================================
+
+    if not bank_details:
+
+        bank_details = UserBankDetails(
+            user_id=user.id,
+            status="PENDING",
+            rejection_reason=None,
+        )
+
+        db.add(bank_details)
+        db.flush()
+
+    # ======================================================
+    # 5. CHECK FIRST NOMINEE SUBMISSION
+    # ======================================================
+
+    is_first_nominee_submission = (
+        bank_details.nominee_name is None
+        and bank_details.nominee_aadhar is None
+        and bank_details.nominee_mobile is None
+        and bank_details.nominee_aadhar_front is None
+        and bank_details.nominee_aadhar_back is None
+    )
+
+    if is_first_nominee_submission:
+
+        if not has_nominee_name:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nominee name is required.",
+            )
+
+        if not has_nominee_aadhar:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nominee Aadhaar is required.",
+            )
+
+        if not has_nominee_mobile:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nominee mobile is required.",
+            )
+
+        if not has_nominee_front:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Nominee Aadhaar front "
+                    "document is required."
+                ),
+            )
+
+        if not has_nominee_back:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Nominee Aadhaar back "
+                    "document is required."
+                ),
+            )
+
+    # ======================================================
+    # 6. FILE SETTINGS
+    # ======================================================
+
+    allowed_types = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "application/pdf": ".pdf",
+    }
+
+    max_size = 5 * 1024 * 1024
+
+    new_front_key = None
+    new_back_key = None
+
+    old_front_key = None
+    old_back_key = None
+
+    # ======================================================
+    # 7. NOMINEE AADHAAR FRONT
     # ======================================================
 
     if has_nominee_front:
 
-        if (
-            nominee_aadhar_front.content_type
-            not in allowed_types
-        ):
+        if nominee_aadhar_front.content_type not in allowed_types:
 
             raise HTTPException(
                 status_code=400,
@@ -1518,11 +2206,11 @@ async def update_bank_details(
                 ),
             )
 
-        nominee_front_content = (
+        front_content = (
             await nominee_aadhar_front.read()
         )
 
-        if len(nominee_front_content) > max_size:
+        if len(front_content) > max_size:
 
             raise HTTPException(
                 status_code=400,
@@ -1532,56 +2220,30 @@ async def update_bank_details(
                 ),
             )
 
-        # --------------------------------------------------
-        # SAVE OLD
-        # --------------------------------------------------
-
-        old_nominee_front_key = (
+        old_front_key = (
             bank_details.nominee_aadhar_front
         )
-
-        # --------------------------------------------------
-        # EXTENSION
-        # --------------------------------------------------
 
         extension = allowed_types[
             nominee_aadhar_front.content_type
         ]
-
-        # --------------------------------------------------
-        # FILENAME
-        # --------------------------------------------------
 
         filename = (
             f"{user.user_id}_nominee_aadhar_front"
             f"{extension}"
         )
 
-        # --------------------------------------------------
-        # UPLOAD
-        # --------------------------------------------------
-
         try:
 
-            new_nominee_front_key = (
-                upload_bank_proof(
-                    file_content=(
-                        nominee_front_content
-                    ),
-                    filename=filename,
-                    content_type=(
-                        nominee_aadhar_front.content_type
-                    ),
-                )
+            new_front_key = upload_bank_proof(
+                file_content=front_content,
+                filename=filename,
+                content_type=(
+                    nominee_aadhar_front.content_type
+                ),
             )
 
         except Exception as exc:
-
-            if new_proof_key:
-
-                delete_spaces_object(
-                    new_proof_key
-                )
 
             raise HTTPException(
                 status_code=500,
@@ -1592,34 +2254,20 @@ async def update_bank_details(
                 ),
             )
 
-        # --------------------------------------------------
-        # UPDATE
-        # --------------------------------------------------
-
         bank_details.nominee_aadhar_front = (
-            new_nominee_front_key
+            new_front_key
         )
 
     # ======================================================
-    # 11. NOMINEE AADHAAR BACK
+    # 8. NOMINEE AADHAAR BACK
     # ======================================================
 
     if has_nominee_back:
 
-        if (
-            nominee_aadhar_back.content_type
-            not in allowed_types
-        ):
+        if nominee_aadhar_back.content_type not in allowed_types:
 
-            if new_proof_key:
-                delete_spaces_object(
-                    new_proof_key
-                )
-
-            if new_nominee_front_key:
-                delete_spaces_object(
-                    new_nominee_front_key
-                )
+            if new_front_key:
+                delete_spaces_object(new_front_key)
 
             raise HTTPException(
                 status_code=400,
@@ -1629,21 +2277,14 @@ async def update_bank_details(
                 ),
             )
 
-        nominee_back_content = (
+        back_content = (
             await nominee_aadhar_back.read()
         )
 
-        if len(nominee_back_content) > max_size:
+        if len(back_content) > max_size:
 
-            if new_proof_key:
-                delete_spaces_object(
-                    new_proof_key
-                )
-
-            if new_nominee_front_key:
-                delete_spaces_object(
-                    new_nominee_front_key
-                )
+            if new_front_key:
+                delete_spaces_object(new_front_key)
 
             raise HTTPException(
                 status_code=400,
@@ -1653,60 +2294,33 @@ async def update_bank_details(
                 ),
             )
 
-        # --------------------------------------------------
-        # SAVE OLD
-        # --------------------------------------------------
-
-        old_nominee_back_key = (
+        old_back_key = (
             bank_details.nominee_aadhar_back
         )
-
-        # --------------------------------------------------
-        # EXTENSION
-        # --------------------------------------------------
 
         extension = allowed_types[
             nominee_aadhar_back.content_type
         ]
-
-        # --------------------------------------------------
-        # FILENAME
-        # --------------------------------------------------
 
         filename = (
             f"{user.user_id}_nominee_aadhar_back"
             f"{extension}"
         )
 
-        # --------------------------------------------------
-        # UPLOAD
-        # --------------------------------------------------
-
         try:
 
-            new_nominee_back_key = (
-                upload_bank_proof(
-                    file_content=(
-                        nominee_back_content
-                    ),
-                    filename=filename,
-                    content_type=(
-                        nominee_aadhar_back.content_type
-                    ),
-                )
+            new_back_key = upload_bank_proof(
+                file_content=back_content,
+                filename=filename,
+                content_type=(
+                    nominee_aadhar_back.content_type
+                ),
             )
 
         except Exception as exc:
 
-            if new_proof_key:
-                delete_spaces_object(
-                    new_proof_key
-                )
-
-            if new_nominee_front_key:
-                delete_spaces_object(
-                    new_nominee_front_key
-                )
+            if new_front_key:
+                delete_spaces_object(new_front_key)
 
             raise HTTPException(
                 status_code=500,
@@ -1717,46 +2331,12 @@ async def update_bank_details(
                 ),
             )
 
-        # --------------------------------------------------
-        # UPDATE
-        # --------------------------------------------------
-
         bank_details.nominee_aadhar_back = (
-            new_nominee_back_key
+            new_back_key
         )
 
     # ======================================================
-    # 12. UPDATE BANK ACCOUNT
-    # ======================================================
-
-    if has_bank_account:
-
-        bank_details.bank_account = (
-            bank_account.strip()
-        )
-
-    # ======================================================
-    # 13. UPDATE BANK NAME
-    # ======================================================
-
-    if has_bank_name:
-
-        bank_details.bank_name = (
-            bank_name.strip()
-        )
-
-    # ======================================================
-    # 14. UPDATE IFSC
-    # ======================================================
-
-    if has_ifsc:
-
-        bank_details.ifsc = (
-            ifsc.strip().upper()
-        )
-
-    # ======================================================
-    # 15. UPDATE NOMINEE NAME
+    # 9. UPDATE NOMINEE NAME
     # ======================================================
 
     if has_nominee_name:
@@ -1766,53 +2346,45 @@ async def update_bank_details(
         )
 
     # ======================================================
-    # 16. UPDATE NOMINEE RELATION
+    # 10. UPDATE NOMINEE RELATION
     # ======================================================
 
     if has_nominee_relation:
 
         bank_details.nominee_relation = (
             nominee_relation.strip()
-            if nominee_relation.strip()
-            else None
         )
 
     # ======================================================
-    # 17. UPDATE NOMINEE GENDER
+    # 11. UPDATE NOMINEE GENDER
     # ======================================================
 
     if has_nominee_gender:
 
         bank_details.nominee_gender = (
             nominee_gender.strip()
-            if nominee_gender.strip()
-            else None
         )
 
     # ======================================================
-    # 18. UPDATE NOMINEE DOB
+    # 12. UPDATE NOMINEE DOB
     # ======================================================
 
     if has_nominee_dob:
 
-        bank_details.nominee_dob = (
-            nominee_dob
-        )
+        bank_details.nominee_dob = nominee_dob
 
     # ======================================================
-    # 19. UPDATE NOMINEE ADDRESS
+    # 13. UPDATE NOMINEE ADDRESS
     # ======================================================
 
     if has_nominee_address:
 
         bank_details.nominee_address = (
             nominee_address.strip()
-            if nominee_address.strip()
-            else None
         )
 
     # ======================================================
-    # 20. UPDATE NOMINEE AADHAAR
+    # 14. UPDATE NOMINEE AADHAAR
     # ======================================================
 
     if has_nominee_aadhar:
@@ -1828,20 +2400,11 @@ async def update_bank_details(
             or len(normalized_nominee_aadhar) != 12
         ):
 
-            if new_proof_key:
-                delete_spaces_object(
-                    new_proof_key
-                )
+            if new_front_key:
+                delete_spaces_object(new_front_key)
 
-            if new_nominee_front_key:
-                delete_spaces_object(
-                    new_nominee_front_key
-                )
-
-            if new_nominee_back_key:
-                delete_spaces_object(
-                    new_nominee_back_key
-                )
+            if new_back_key:
+                delete_spaces_object(new_back_key)
 
             raise HTTPException(
                 status_code=400,
@@ -1856,7 +2419,7 @@ async def update_bank_details(
         )
 
     # ======================================================
-    # 21. UPDATE NOMINEE MOBILE
+    # 15. UPDATE NOMINEE MOBILE
     # ======================================================
 
     if has_nominee_mobile:
@@ -1866,118 +2429,64 @@ async def update_bank_details(
         )
 
     # ======================================================
-    # 22. RESET STATUS
+    # 16. RESET STATUS
     # ======================================================
 
     bank_details.status = "PENDING"
-
     bank_details.rejection_reason = None
 
     # ======================================================
-    # 23. SAVE DATABASE
+    # 17. SAVE
     # ======================================================
 
     try:
 
         db.commit()
-
         db.refresh(bank_details)
 
     except Exception as exc:
 
         db.rollback()
 
-        # ----------------------------------------------
-        # DELETE NEW UPLOADS
-        # ----------------------------------------------
+        if new_front_key:
+            delete_spaces_object(new_front_key)
 
-        if new_proof_key:
-
-            delete_spaces_object(
-                new_proof_key
-            )
-
-        if new_nominee_front_key:
-
-            delete_spaces_object(
-                new_nominee_front_key
-            )
-
-        if new_nominee_back_key:
-
-            delete_spaces_object(
-                new_nominee_back_key
-            )
+        if new_back_key:
+            delete_spaces_object(new_back_key)
 
         raise HTTPException(
             status_code=500,
             detail=(
-                "Failed to update bank details: "
+                "Failed to update nominee details: "
                 f"{str(exc)}"
             ),
         )
 
     # ======================================================
-    # 24. DELETE OLD FILES
+    # 18. DELETE OLD FILES
     # ======================================================
 
-    if old_proof_key:
+    if old_front_key and old_front_key != new_front_key:
 
-        delete_spaces_object(
-            old_proof_key
-        )
+        try:
+            delete_spaces_object(old_front_key)
+        except Exception:
+            pass
 
-    if old_nominee_front_key:
+    if old_back_key and old_back_key != new_back_key:
 
-        delete_spaces_object(
-            old_nominee_front_key
-        )
-
-    if old_nominee_back_key:
-
-        delete_spaces_object(
-            old_nominee_back_key
-        )
+        try:
+            delete_spaces_object(old_back_key)
+        except Exception:
+            pass
 
     # ======================================================
-    # 25. RESPONSE
+    # 19. RESPONSE
     # ======================================================
 
     return {
 
-        "message": (
-            "Bank and nominee details "
-            "updated successfully."
-        ),
-
-        "bank_details": {
-
-            "id": bank_details.id,
-
-            "bank_account": (
-                bank_details.bank_account
-            ),
-
-            "bank_name": (
-                bank_details.bank_name
-            ),
-
-            "ifsc": (
-                bank_details.ifsc
-            ),
-
-            "bank_proof": (
-                bank_details.bank_proof
-            ),
-
-            "status": (
-                bank_details.status
-            ),
-
-            "rejection_reason": (
-                bank_details.rejection_reason
-            ),
-        },
+        "message": "Nominee details updated successfully.",
 
         "nominee_details": {
 
@@ -2016,17 +2525,129 @@ async def update_bank_details(
             "nominee_aadhar_back": (
                 bank_details.nominee_aadhar_back
             ),
+
+            "status": (
+                bank_details.status
+            ),
+
+            "rejection_reason": (
+                bank_details.rejection_reason
+            ),
         },
     }
+
+
+# @router.get("/profile/bank-details")
+# def get_bank_details(
+#     current_user: str = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     # =================================
+#     # Find logged-in user
+#     # =================================
+
+#     user = (
+#         db.query(User)
+#         .filter(User.user_id == current_user)
+#         .first()
+#     )
+
+#     if not user:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="User not found"
+#         )
+
+#     # =================================
+#     # Get bank details
+#     # =================================
+
+#     bank_details = (
+#         db.query(UserBankDetails)
+#         .filter(
+#             UserBankDetails.user_id == user.id
+#         )
+#         .first()
+#     )
+
+#     # =================================
+#     # No bank details
+#     # =================================
+
+#     if not bank_details:
+#         return {
+#             "message": "Bank details not found",
+
+#             "bank_details": None,
+
+#             "nominee_details": None
+#         }
+
+#     # =================================
+#     # Response
+#     # =================================
+
+#     return {
+#         "message": "Bank details fetched successfully",
+
+#         "bank_details": {
+#             "id": bank_details.id,
+#             "bank_account": bank_details.bank_account,
+#             "bank_name": bank_details.bank_name,
+#             "ifsc": bank_details.ifsc,
+
+#             "bank_proof": (
+#                 get_presigned_url(
+#                     bank_details.bank_proof
+#                 )
+#                 if bank_details.bank_proof
+#                 else None
+#             ),
+
+#             "status": bank_details.status,
+
+#             "rejection_reason": (
+#                 bank_details.rejection_reason
+#             ),
+#         },
+
+#         "nominee_details": {
+#             "nominee_name": bank_details.nominee_name,
+#             "nominee_relation": bank_details.nominee_relation,
+#             "nominee_gender": bank_details.nominee_gender,
+#             "nominee_dob": bank_details.nominee_dob,
+#             "nominee_address": bank_details.nominee_address,
+#             "nominee_aadhar": bank_details.nominee_aadhar,
+#             "nominee_mobile": bank_details.nominee_mobile,
+
+#             "nominee_aadhar_front": (
+#                 get_presigned_url(
+#                     bank_details.nominee_aadhar_front
+#                 )
+#                 if bank_details.nominee_aadhar_front
+#                 else None
+#             ),
+
+#             "nominee_aadhar_back": (
+#                 get_presigned_url(
+#                     bank_details.nominee_aadhar_back
+#                 )
+#                 if bank_details.nominee_aadhar_back
+#                 else None
+#             ),
+#         }
+#     }
+
 
 @router.get("/profile/bank-details")
 def get_bank_details(
     current_user: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    # =================================
-    # Find logged-in user
-    # =================================
+
+    # ======================================================
+    # 1. FIND LOGGED-IN USER
+    # ======================================================
 
     user = (
         db.query(User)
@@ -2035,14 +2656,15 @@ def get_bank_details(
     )
 
     if not user:
+
         raise HTTPException(
             status_code=404,
-            detail="User not found"
+            detail="User not found",
         )
 
-    # =================================
-    # Get bank details
-    # =================================
+    # ======================================================
+    # 2. GET BANK DETAILS
+    # ======================================================
 
     bank_details = (
         db.query(UserBankDetails)
@@ -2052,31 +2674,40 @@ def get_bank_details(
         .first()
     )
 
-    # =================================
-    # No bank details
-    # =================================
+    # ======================================================
+    # 3. BANK DETAILS NOT FOUND
+    # ======================================================
 
     if not bank_details:
+
         return {
             "message": "Bank details not found",
-
             "bank_details": None,
-
-            "nominee_details": None
         }
 
-    # =================================
-    # Response
-    # =================================
+    # ======================================================
+    # 4. RESPONSE
+    # ======================================================
 
     return {
+
         "message": "Bank details fetched successfully",
 
         "bank_details": {
+
             "id": bank_details.id,
-            "bank_account": bank_details.bank_account,
-            "bank_name": bank_details.bank_name,
-            "ifsc": bank_details.ifsc,
+
+            "bank_account": (
+                bank_details.bank_account
+            ),
+
+            "bank_name": (
+                bank_details.bank_name
+            ),
+
+            "ifsc": (
+                bank_details.ifsc
+            ),
 
             "bank_proof": (
                 get_presigned_url(
@@ -2086,21 +2717,125 @@ def get_bank_details(
                 else None
             ),
 
-            "status": bank_details.status,
+            "status": (
+                bank_details.status
+            ),
 
             "rejection_reason": (
                 bank_details.rejection_reason
             ),
         },
+    }
+
+
+@router.get("/profile/nominee-details")
+def get_nominee_details(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    # ======================================================
+    # 1. FIND LOGGED-IN USER
+    # ======================================================
+
+    user = (
+        db.query(User)
+        .filter(User.user_id == current_user)
+        .first()
+    )
+
+    if not user:
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    # ======================================================
+    # 2. GET NOMINEE DETAILS
+    # ======================================================
+
+    bank_details = (
+        db.query(UserBankDetails)
+        .filter(
+            UserBankDetails.user_id == user.id
+        )
+        .first()
+    )
+
+    # ======================================================
+    # 3. NOMINEE DETAILS NOT FOUND
+    # ======================================================
+
+    if not bank_details:
+
+        return {
+            "message": "Nominee details not found",
+            "nominee_details": None,
+        }
+
+    # ======================================================
+    # 4. CHECK NOMINEE DATA
+    # ======================================================
+
+    has_nominee_data = any([
+        bank_details.nominee_name,
+        bank_details.nominee_relation,
+        bank_details.nominee_gender,
+        bank_details.nominee_dob,
+        bank_details.nominee_address,
+        bank_details.nominee_aadhar,
+        bank_details.nominee_mobile,
+        bank_details.nominee_aadhar_front,
+        bank_details.nominee_aadhar_back,
+    ])
+
+    if not has_nominee_data:
+
+        return {
+            "message": "Nominee details not found",
+            "nominee_details": None,
+        }
+
+    # ======================================================
+    # 5. RESPONSE
+    # ======================================================
+
+    return {
+
+        "message": "Nominee details fetched successfully",
 
         "nominee_details": {
-            "nominee_name": bank_details.nominee_name,
-            "nominee_relation": bank_details.nominee_relation,
-            "nominee_gender": bank_details.nominee_gender,
-            "nominee_dob": bank_details.nominee_dob,
-            "nominee_address": bank_details.nominee_address,
-            "nominee_aadhar": bank_details.nominee_aadhar,
-            "nominee_mobile": bank_details.nominee_mobile,
+
+            "id": bank_details.id,
+
+            "nominee_name": (
+                bank_details.nominee_name
+            ),
+
+            "nominee_relation": (
+                bank_details.nominee_relation
+            ),
+
+            "nominee_gender": (
+                bank_details.nominee_gender
+            ),
+
+            "nominee_dob": (
+                bank_details.nominee_dob
+            ),
+
+            "nominee_address": (
+                bank_details.nominee_address
+            ),
+
+            "nominee_aadhar": (
+                bank_details.nominee_aadhar
+            ),
+
+            "nominee_mobile": (
+                bank_details.nominee_mobile
+            ),
 
             "nominee_aadhar_front": (
                 get_presigned_url(
@@ -2117,8 +2852,19 @@ def get_bank_details(
                 if bank_details.nominee_aadhar_back
                 else None
             ),
-        }
+
+            "status": (
+                bank_details.status
+            ),
+
+            "rejection_reason": (
+                bank_details.rejection_reason
+            ),
+        },
     }
+
+
+
 @router.get("/image")
 def get_profile_image(
     current_user: str = Depends(get_current_user),
