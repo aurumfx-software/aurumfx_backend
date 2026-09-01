@@ -519,3 +519,169 @@ def update_bank_status(
             bank_details.rejection_reason
         ),
     }
+
+# ==========================================================
+# GET PENDING BANK DETAILS
+# Only users with complete bank submission
+# ==========================================================
+
+@router.get("/bank-details/pending")
+def get_pending_users_bank_details(
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    # ======================================================
+    # GET USERS WITH PENDING + COMPLETE BANK DETAILS
+    # ======================================================
+
+    users = (
+        db.query(User)
+        .join(
+            UserBankDetails,
+            UserBankDetails.user_id == User.id
+        )
+        .filter(
+            # ----------------------------------------------
+            # BANK STATUS MUST BE PENDING
+            # ----------------------------------------------
+
+            UserBankDetails.status == "PENDING",
+
+            # ----------------------------------------------
+            # BANK ACCOUNT MUST BE UPLOADED
+            # ----------------------------------------------
+
+            UserBankDetails.bank_account.isnot(None),
+            UserBankDetails.bank_account != "",
+
+            # ----------------------------------------------
+            # BANK NAME MUST BE UPLOADED
+            # ----------------------------------------------
+
+            UserBankDetails.bank_name.isnot(None),
+            UserBankDetails.bank_name != "",
+
+            # ----------------------------------------------
+            # IFSC MUST BE UPLOADED
+            # ----------------------------------------------
+
+            UserBankDetails.ifsc.isnot(None),
+            UserBankDetails.ifsc != "",
+
+            # ----------------------------------------------
+            # BANK PROOF MUST BE UPLOADED
+            # ----------------------------------------------
+
+            UserBankDetails.bank_proof.isnot(None),
+            UserBankDetails.bank_proof != "",
+        )
+        .order_by(
+            User.created_at.desc()
+        )
+        .all()
+    )
+
+    response = []
+
+    # ======================================================
+    # LOOP USERS
+    # ======================================================
+
+    for user in users:
+
+        # ==================================================
+        # GET BANK DETAILS
+        # ==================================================
+
+        bank_details = (
+            db.query(UserBankDetails)
+            .filter(
+                UserBankDetails.user_id == user.id
+            )
+            .first()
+        )
+
+        if not bank_details:
+            continue
+
+        # ==================================================
+        # BANK PROOF URL
+        # ==================================================
+
+        bank_proof_url = None
+
+        if bank_details.bank_proof:
+
+            try:
+
+                bank_proof_url = generate_presigned_url(
+                    bank_details.bank_proof,
+                    expires_in=300,
+                )
+
+            except Exception:
+
+                bank_proof_url = None
+
+        # ==================================================
+        # RESPONSE
+        # ==================================================
+
+        response.append(
+            {
+                # ------------------------------------------
+                # USER
+                # ------------------------------------------
+
+                "user_id":
+                    user.user_id,
+
+                "fullname":
+                    (
+                        f"{user.first_name or ''} "
+                        f"{user.last_name or ''}"
+                    ).strip(),
+
+                # ------------------------------------------
+                # BANK DETAILS
+                # ------------------------------------------
+
+                "bank_details": {
+
+                    "bank_account":
+                        bank_details.bank_account,
+
+                    "bank_name":
+                        bank_details.bank_name,
+
+                    "ifsc":
+                        bank_details.ifsc,
+
+                    "bank_proof":
+                        bank_proof_url,
+
+                    "status":
+                        bank_details.status,
+
+                    "rejection_reason":
+                        bank_details.rejection_reason,
+                },
+
+                # ------------------------------------------
+                # EXPIRY
+                # ------------------------------------------
+
+                "expires_in":
+                    300,
+            }
+        )
+
+    # ======================================================
+    # RETURN
+    # ======================================================
+
+    return {
+        "success": True,
+        "count": len(response),
+        "data": response
+    }
