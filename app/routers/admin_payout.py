@@ -574,7 +574,866 @@ def get_pending_payouts(
         "total": len(result),
         "items": result
     }
+# ============================================================
+# PRINT PENDING PAYOUTS - A4
+# ============================================================
 
+from fastapi.responses import HTMLResponse
+from html import escape
+
+
+@router.get(
+    "/pending/print",
+    response_class=HTMLResponse
+)
+def print_pending_payouts(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """
+    A4 printable report for all pending payouts.
+    """
+
+    # ========================================================
+    # ADMIN FEE
+    # ========================================================
+
+    admin_fee_percentage = get_admin_fee_percentage(db)
+
+    # ========================================================
+    # USERS
+    # ========================================================
+
+    users = (
+        db.query(User)
+        .options(
+            joinedload(
+                User.bank_details
+            )
+        )
+        .order_by(
+            User.created_at.desc()
+        )
+        .all()
+    )
+
+    rows = ""
+
+    # ========================================================
+    # TOTALS
+    # ========================================================
+
+    total_referral = Decimal("0.00")
+    total_level = Decimal("0.00")
+    total_rank = Decimal("0.00")
+    total_income = Decimal("0.00")
+    total_admin_fee = Decimal("0.00")
+    total_net_payable = Decimal("0.00")
+
+    serial_no = 1
+
+    # ========================================================
+    # LOOP USERS
+    # ========================================================
+
+    for user in users:
+
+        # ====================================================
+        # REFERRAL
+        # ====================================================
+
+        referral_pending = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        ReferralCommission.commission_amount
+                    ),
+                    0
+                )
+            )
+            .filter(
+                ReferralCommission.enroller_id == user.id,
+                ReferralCommission.status == "PENDING"
+            )
+            .scalar()
+            or 0
+        )
+
+        # ====================================================
+        # LEVEL
+        # ====================================================
+
+        level_pending = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        LevelCommissionHistory.commission_amount
+                    ),
+                    0
+                )
+            )
+            .filter(
+                LevelCommissionHistory.sponsor_id == user.id,
+                LevelCommissionHistory.status == "PENDING"
+            )
+            .scalar()
+            or 0
+        )
+
+        # ====================================================
+        # RANK
+        # ====================================================
+
+        rank_pending = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        UserRankHistory.reward_income
+                    ),
+                    0
+                )
+            )
+            .filter(
+                UserRankHistory.user_id == user.id,
+                UserRankHistory.reward_paid == False
+            )
+            .scalar()
+            or 0
+        )
+
+        # ====================================================
+        # DECIMAL
+        # ====================================================
+
+        referral_pending = money(
+            referral_pending
+        )
+
+        level_pending = money(
+            level_pending
+        )
+
+        rank_pending = money(
+            rank_pending
+        )
+
+        # ====================================================
+        # TOTAL INCOME
+        # ====================================================
+
+        total_user_income = money(
+            referral_pending
+            + level_pending
+            + rank_pending
+        )
+
+        # No pending income
+        if total_user_income <= 0:
+            continue
+
+        # ====================================================
+        # ADMIN FEE
+        # ====================================================
+
+        admin_fee = money(
+            total_user_income
+            * admin_fee_percentage
+            / Decimal("100")
+        )
+
+        # ====================================================
+        # NET PAYABLE
+        # ====================================================
+
+        net_payable = money(
+            total_user_income
+            - admin_fee
+        )
+
+        # ====================================================
+        # USER NAME
+        # ====================================================
+
+        user_name = get_user_name(user)
+
+        # ====================================================
+        # BANK DETAILS
+        # ====================================================
+
+        bank = user.bank_details
+
+        bank_account = ""
+        bank_name = ""
+        ifsc = ""
+        bank_status = ""
+
+        if bank:
+
+            bank_account = (
+                bank.bank_account or ""
+            )
+
+            bank_name = (
+                bank.bank_name or ""
+            )
+
+            ifsc = (
+                bank.ifsc or ""
+            )
+
+            bank_status = (
+                bank.status or ""
+            )
+
+        # ====================================================
+        # ESCAPE HTML
+        # ====================================================
+
+        user_code = escape(
+            str(user.user_id or "")
+        )
+
+        user_name = escape(
+            str(user_name)
+        )
+
+        bank_account = escape(
+            str(bank_account)
+        )
+
+        bank_name = escape(
+            str(bank_name)
+        )
+
+        ifsc = escape(
+            str(ifsc)
+        )
+
+        bank_status = escape(
+            str(bank_status)
+        )
+
+        # ====================================================
+        # TABLE ROW
+        # ====================================================
+
+        rows += f"""
+        <tr>
+
+            <td class="center">
+                {serial_no}
+            </td>
+
+            <td>
+                {user_code}
+            </td>
+
+            <td>
+                {user_name}
+            </td>
+
+            <td class="amount">
+                ₹ {referral_pending:,.2f}
+            </td>
+
+            <td class="amount">
+                ₹ {level_pending:,.2f}
+            </td>
+
+            <td class="amount">
+                ₹ {rank_pending:,.2f}
+            </td>
+
+            <td class="amount">
+                ₹ {total_user_income:,.2f}
+            </td>
+
+            <td class="amount">
+                ₹ {admin_fee:,.2f}
+            </td>
+
+            <td class="amount">
+                ₹ {net_payable:,.2f}
+            </td>
+
+            <td>
+                {bank_account}
+            </td>
+
+            <td>
+                {bank_name}
+            </td>
+
+            <td>
+                {ifsc}
+            </td>
+
+            <td>
+                {bank_status}
+            </td>
+
+        </tr>
+        """
+
+        # ====================================================
+        # TOTALS
+        # ====================================================
+
+        total_referral += referral_pending
+        total_level += level_pending
+        total_rank += rank_pending
+        total_income += total_user_income
+        total_admin_fee += admin_fee
+        total_net_payable += net_payable
+
+        serial_no += 1
+
+    # ========================================================
+    # REPORT DATE
+    # ========================================================
+
+    generated_at = datetime.now().strftime(
+        "%d-%m-%Y %H:%M:%S"
+    )
+
+    # ========================================================
+    # HTML
+    # ========================================================
+
+    html = f"""
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>
+    AurumFX - Pending Payout Report
+</title>
+
+<style>
+
+    /* =====================================================
+       A4 LANDSCAPE
+       ===================================================== */
+
+    @page {{
+        size: A4 landscape;
+        margin: 10mm;
+    }}
+
+    * {{
+        box-sizing: border-box;
+    }}
+
+    body {{
+        margin: 0;
+        padding: 0;
+
+        font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+
+        font-size: 8px;
+
+        color: #222;
+
+        background: #fff;
+    }}
+
+    .report {{
+        width: 100%;
+    }}
+
+    /* =====================================================
+       HEADER
+       ===================================================== */
+
+    .header {{
+        text-align: center;
+
+        margin-bottom: 10px;
+    }}
+
+    .company-name {{
+        font-size: 22px;
+
+        font-weight: bold;
+
+        letter-spacing: 1px;
+    }}
+
+    .report-title {{
+        font-size: 15px;
+
+        font-weight: bold;
+
+        margin-top: 3px;
+    }}
+
+    .generated {{
+        font-size: 8px;
+
+        margin-top: 3px;
+    }}
+
+    /* =====================================================
+       INFO
+       ===================================================== */
+
+    .info {{
+        display: flex;
+
+        justify-content: space-between;
+
+        border: 1px solid #999;
+
+        padding: 6px 8px;
+
+        margin-bottom: 8px;
+
+        background: #f5f5f5;
+    }}
+
+    .info-item {{
+        font-size: 8px;
+    }}
+
+    /* =====================================================
+       TABLE
+       ===================================================== */
+
+    table {{
+        width: 100%;
+
+        border-collapse: collapse;
+
+        table-layout: fixed;
+    }}
+
+    th {{
+        border: 1px solid #888;
+
+        background: #e9e9e9;
+
+        padding: 5px 3px;
+
+        text-align: center;
+
+        font-size: 7.5px;
+
+        font-weight: bold;
+    }}
+
+    td {{
+        border: 1px solid #aaa;
+
+        padding: 4px 3px;
+
+        font-size: 7.5px;
+
+        vertical-align: middle;
+
+        word-wrap: break-word;
+    }}
+
+    .center {{
+        text-align: center;
+    }}
+
+    .amount {{
+        text-align: right;
+
+        white-space: nowrap;
+    }}
+
+    .total-row {{
+        font-weight: bold;
+
+        background: #eeeeee;
+    }}
+
+    /* =====================================================
+       SUMMARY
+       ===================================================== */
+
+    .summary {{
+        display: flex;
+
+        gap: 6px;
+
+        margin-top: 10px;
+    }}
+
+    .summary-box {{
+        flex: 1;
+
+        border: 1px solid #999;
+
+        padding: 6px;
+
+        text-align: center;
+    }}
+
+    .summary-label {{
+        font-size: 7px;
+
+        font-weight: bold;
+    }}
+
+    .summary-value {{
+        font-size: 10px;
+
+        font-weight: bold;
+
+        margin-top: 3px;
+    }}
+
+    /* =====================================================
+       FOOTER
+       ===================================================== */
+
+    .footer {{
+        display: flex;
+
+        justify-content: space-between;
+
+        margin-top: 12px;
+
+        font-size: 7px;
+    }}
+
+    .signature {{
+        margin-top: 25px;
+
+        text-align: right;
+
+        font-size: 8px;
+    }}
+
+    /* =====================================================
+       PRINT
+       ===================================================== */
+
+    @media print {{
+
+        body {{
+            print-color-adjust: exact;
+
+            -webkit-print-color-adjust: exact;
+        }}
+
+        thead {{
+            display: table-header-group;
+        }}
+
+        tr {{
+            page-break-inside: avoid;
+        }}
+
+    }}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="report">
+
+    <!-- =================================================
+         HEADER
+         ================================================= -->
+
+    <div class="header">
+
+        <div class="company-name">
+            AurumFX
+        </div>
+
+        <div class="report-title">
+            PENDING PAYOUT REPORT
+        </div>
+
+        <div class="generated">
+            Generated on: {generated_at}
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         INFORMATION
+         ================================================= -->
+
+    <div class="info">
+
+        <div class="info-item">
+
+            <strong>Status:</strong>
+            PENDING
+
+        </div>
+
+
+        <div class="info-item">
+
+            <strong>Admin Fee:</strong>
+            {admin_fee_percentage:.2f}%
+
+        </div>
+
+
+        <div class="info-item">
+
+            <strong>Total Users:</strong>
+            {serial_no - 1}
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         TABLE
+         ================================================= -->
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th style="width: 3%;">
+                    #
+                </th>
+
+                <th style="width: 7%;">
+                    User ID
+                </th>
+
+                <th style="width: 10%;">
+                    User Name
+                </th>
+
+                <th style="width: 8%;">
+                    Referral
+                </th>
+
+                <th style="width: 8%;">
+                    Level
+                </th>
+
+                <th style="width: 7%;">
+                    Rank
+                </th>
+
+                <th style="width: 9%;">
+                    Total Income
+                </th>
+
+                <th style="width: 8%;">
+                    Admin Fee
+                </th>
+
+                <th style="width: 9%;">
+                    Net Payable
+                </th>
+
+                <th style="width: 9%;">
+                    Bank Account
+                </th>
+
+                <th style="width: 8%;">
+                    Bank Name
+                </th>
+
+                <th style="width: 7%;">
+                    IFSC
+                </th>
+
+                <th style="width: 7%;">
+                    Bank Status
+                </th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {rows}
+
+
+            <!-- =========================================
+                 TOTAL
+                 ========================================= -->
+
+            <tr class="total-row">
+
+                <td colspan="3" class="center">
+                    TOTAL
+                </td>
+
+                <td class="amount">
+                    ₹ {total_referral:,.2f}
+                </td>
+
+                <td class="amount">
+                    ₹ {total_level:,.2f}
+                </td>
+
+                <td class="amount">
+                    ₹ {total_rank:,.2f}
+                </td>
+
+                <td class="amount">
+                    ₹ {total_income:,.2f}
+                </td>
+
+                <td class="amount">
+                    ₹ {total_admin_fee:,.2f}
+                </td>
+
+                <td class="amount">
+                    ₹ {total_net_payable:,.2f}
+                </td>
+
+                <td colspan="4">
+                </td>
+
+            </tr>
+
+        </tbody>
+
+    </table>
+
+
+    <!-- =================================================
+         SUMMARY
+         ================================================= -->
+
+    <div class="summary">
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL REFERRAL
+            </div>
+
+            <div class="summary-value">
+                ₹ {total_referral:,.2f}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL LEVEL
+            </div>
+
+            <div class="summary-value">
+                ₹ {total_level:,.2f}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL RANK
+            </div>
+
+            <div class="summary-value">
+                ₹ {total_rank:,.2f}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL PENDING
+            </div>
+
+            <div class="summary-value">
+                ₹ {total_income:,.2f}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL ADMIN FEE
+            </div>
+
+            <div class="summary-value">
+                ₹ {total_admin_fee:,.2f}
+            </div>
+
+        </div>
+
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                TOTAL NET PAYABLE
+            </div>
+
+            <div class="summary-value">
+                ₹ {total_net_payable:,.2f}
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         FOOTER
+         ================================================= -->
+
+    <div class="footer">
+
+        <div>
+            AurumFX - Pending Payout Report
+        </div>
+
+        <div>
+            Total Records: {serial_no - 1}
+        </div>
+
+    </div>
+
+
+    <div class="signature">
+
+        Authorized By:
+        ______________________________
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
+"""
+
+    return HTMLResponse(
+        content=html
+    )
 
 # ============================================================
 # PAY USER
