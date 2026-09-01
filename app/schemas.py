@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
 from app.enums import GenderEnum, ClubEnum
 
@@ -150,6 +150,7 @@ class AdminInvestmentResponse(BaseModel):
     approval_status: str
     investment_date: date
     payment_proof: str
+    approval_status_updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

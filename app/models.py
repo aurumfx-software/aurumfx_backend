@@ -169,6 +169,12 @@ class Investment(Base):
         default="PENDING"
     )
 
+    approval_status_updated_at = Column(
+    DateTime(timezone=True),
+    server_default=func.now(),
+    nullable=True
+    )
+
     reject_reason = Column(
     String(500),
     nullable=True

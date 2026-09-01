@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -75,7 +75,7 @@ def all_requests(
 
     investments = (
         db.query(Investment)
-        .order_by(Investment.id.desc())
+        .order_by(Investment.approval_status_updated_at.desc())
         .all()
     )
 
@@ -111,6 +111,7 @@ def all_requests(
                 approval_status=inv.approval_status,
                 investment_date=inv.investment_date,
                 payment_proof=get_presigned_url(inv.payment_proof),
+                approval_status_updated_at=inv.approval_status_updated_at
                 
 
             )
@@ -275,7 +276,7 @@ def active_investments(
         )
 
     investments = (
-        query.order_by(Investment.id.desc())
+        query.order_by(Investment.approval_status_updated_at.desc())
         .all()
     )
 
@@ -319,6 +320,8 @@ def active_investments(
                 approval_status=inv.approval_status,
                 investment_date=inv.investment_date,
                 payment_proof=get_presigned_url(inv.payment_proof),
+                approval_status_updated_at=inv.approval_status_updated_at
+
 
             )
         )
@@ -379,6 +382,8 @@ def today_returns(
                 approval_status=inv.approval_status,
                 investment_date=inv.investment_date,
                 payment_proof=get_presigned_url(inv.payment_proof),
+                approval_status_updated_at=inv.approval_status_updated_at,
+
 
             )
         )
@@ -736,11 +741,13 @@ def approve_reject(
 
         # No rejection reason for approved investment
         investment.reject_reason = None
+        investment.approval_status_updated_at = datetime.now()
 
     else:
 
         investment.investment_status = "REJECTED"
         investment.reject_reason = reject_reason
+        investment.approval_status_updated_at = datetime.now()
 
     db.commit()
     db.refresh(investment)
