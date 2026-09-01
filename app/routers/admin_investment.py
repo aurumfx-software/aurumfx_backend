@@ -809,15 +809,13 @@ def approve_reject(
             investment
         )
 
-        # --------------------------------------------------
-        # Rank Holder Commission
-        # --------------------------------------------------
+        # ======================================================
+        # RANK HOLDER / RANK REWARD
+        # ======================================================
 
         investor = (
             db.query(User)
-            .filter(
-                User.id == investment.user_id
-            )
+            .filter(User.id == investment.user_id)
             .first()
         )
 
@@ -836,18 +834,54 @@ def approve_reject(
             if not sponsor:
                 break
 
-            print(
-                "Checking Sponsor :",
-                sponsor.user_id
-            )
+            print("======================================")
+            print("Checking Rank Holder:", sponsor.user_id)
 
-            check_and_assign_rank(
+            # ==================================================
+            # 1. CHECK RANK SETTINGS / CONDITIONS
+            # ==================================================
+
+            rank_achieved = check_and_assign_rank(
                 db,
                 sponsor
             )
 
-            current = sponsor
+            # ==================================================
+            # 2. IF RANK ACHIEVED, CHECK ACTIVE INVESTMENT
+            # ==================================================
 
+            if rank_achieved:
+
+                active_investment = (
+                    db.query(Investment)
+                    .filter(
+                        Investment.user_id == sponsor.id,
+                        Investment.approval_status == "APPROVED",
+                        Investment.investment_status == "ACTIVE"
+                    )
+                    .first()
+                )
+
+                if not active_investment:
+
+                    print(
+                        "Rank achieved but reward skipped.",
+                        "No active investment:",
+                        sponsor.user_id
+                    )
+
+                else:
+
+                    print(
+                        "Rank achieved + active investment.",
+                        "Reward eligible:",
+                        sponsor.user_id
+                    )
+
+                    # Give rank reward here
+                    # create_rank_reward(...)
+            
+            current = sponsor
     # ======================================================
     # RESPONSE
     # ======================================================
