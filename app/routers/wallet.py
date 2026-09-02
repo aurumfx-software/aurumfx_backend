@@ -574,6 +574,8 @@ def wallet_summary(
     if amount < 0:
         amount = 0
 
+   
+
     # ========================================================
     # RESPONSE
     # ========================================================
@@ -585,16 +587,25 @@ def wallet_summary(
             2
         ),
 
+        # "total_admin_fee": round(
+        #     total_admin_fee,
+        #     2
+        # ),
+
         "admin_fee": round(
-            total_admin_fee,
+            actual_admin_fee,
             2
         ),
-
-        "amount": round(
+       "amount": round(
             amount,
             2
         ),
 
+        "paid_amount": round(
+            balance,
+            2
+        ),
+        
         "pending_balance": round(
             pending_balance,
             2
