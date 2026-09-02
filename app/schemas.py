@@ -693,3 +693,8 @@ class ReturnDateSettingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+class BulkPayoutRequest(BaseModel):
+    user_ids: List[int]
