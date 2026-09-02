@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_admin
+from fastapi.responses import HTMLResponse
+from html import escape
+
 
 from app.models import (
     User,
@@ -253,8 +256,8 @@ def get_bank_details(
         "bank_name": bank.bank_name,
         "ifsc": bank.ifsc,
         "bank_proof": bank.bank_proof,
-        "status": bank.status,
-        "rejection_reason": bank.rejection_reason,
+        "status": bank.bank_status,
+        "rejection_reason": bank.bank_rejection_reason,
     }
 
 
@@ -578,8 +581,6 @@ def get_pending_payouts(
 # PRINT PENDING PAYOUTS - A4
 # ============================================================
 
-from fastapi.responses import HTMLResponse
-from html import escape
 
 
 @router.get(
@@ -782,7 +783,7 @@ def print_pending_payouts(
             )
 
             bank_status = (
-                bank.status or ""
+                bank.bank_status or ""
             )
 
         # ====================================================
