@@ -549,6 +549,7 @@ def get_user_investment_summary(
     return total_investment, total_lots
 
 
+
 # ============================================================
 # BUILD ONE GENEALOGY NODE
 # ============================================================
@@ -648,11 +649,22 @@ def build_genealogy_node(
     # --------------------------------------------------------
     # GROUP LOTS
     #
-    # Start with user's own lots.
-    # Then add every child's group lots.
+    # IMPORTANT:
+    # total_group_lots excludes this user's own lots.
+    #
+    # Example:
+    #
+    # User       = 5 lots
+    # Child 1    = 3 lots
+    # Child 2    = 2 lots
+    #
+    # total_lots       = 5
+    # total_group_lots = 5
+    #
+    # The user's own 5 lots are NOT included.
     # --------------------------------------------------------
 
-    total_group_lots = total_lots
+    total_group_lots = 0
 
     for child in children:
 
@@ -665,9 +677,11 @@ def build_genealogy_node(
             child_node
         )
 
-        total_group_lots += (
-            child_node["total_group_lots"]
-        )
+        # Add child's own lots
+        total_group_lots += child_node["total_lots"]
+
+        # Add child's downline lots
+        total_group_lots += child_node["total_group_lots"]
 
     # --------------------------------------------------------
     # Return node
@@ -680,6 +694,8 @@ def build_genealogy_node(
 
         "fullname": fullname,
 
+        "sponsor": user.enroller_id,
+
         "date_of_joining": date_of_joining,
 
         "rank": rank,
@@ -690,7 +706,8 @@ def build_genealogy_node(
         # User's own active approved lots
         "total_lots": total_lots,
 
-        # User + complete downline lots
+        # Complete downline lots
+        # EXCLUDES user's own lots
         "total_group_lots": total_group_lots,
 
         "investment_status": investment_status,
