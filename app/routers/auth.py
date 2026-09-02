@@ -2730,12 +2730,12 @@ def get_bank_details(
                 else None
             ),
 
-            "status": (
-                bank_details.status
+            "bank_status": (
+                bank_details.bank_status
             ),
 
-            "rejection_reason": (
-                bank_details.rejection_reason
+            "bank_rejection_reason": (
+                bank_details.bank_rejection_reason
             ),
         },
     }
@@ -2866,12 +2866,12 @@ def get_nominee_details(
                 else None
             ),
 
-            "status": (
-                bank_details.status
+            "nominee_status": (
+                bank_details.nominee_status
             ),
 
-            "rejection_reason": (
-                bank_details.rejection_reason
+            "nominee_rejection_reason": (
+                bank_details.nominee_rejection_reason
             ),
         },
     }

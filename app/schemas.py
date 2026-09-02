@@ -652,21 +652,36 @@ class AdminEnrollerListResponse(BaseModel):
 
 
 class BankStatusUpdateRequest(BaseModel):
-    status: str
-    rejection_reason: str | None = None
+    bank_status: str
+    bank_rejection_reason: str | None = None
 
-    @field_validator("status")
+    @field_validator("bank_status")
     @classmethod
     def validate_status(cls, value):
         value = value.upper()
 
         if value not in ["APPROVED", "REJECTED"]:
             raise ValueError(
-                "Status must be APPROVED or REJECTED"
+                "Bank Status must be APPROVED or REJECTED"
             )
 
         return value
+    
+class NomineeStatusUpdateRequest(BaseModel):
+    nominee_status: str
+    nominee_rejection_reason: str | None = None
 
+    @field_validator("nominee_status")
+    @classmethod
+    def validate_status(cls, value):
+        value = value.upper()
+
+        if value not in ["APPROVED", "REJECTED"]:
+            raise ValueError(
+                "Nominee Status must be APPROVED or REJECTED"
+            )
+
+        return value
 class KYCStatusUpdateRequest(BaseModel):
     status: str
     rejection_reason: str | None = None

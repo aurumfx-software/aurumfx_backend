@@ -1099,58 +1099,138 @@ class PayoutHistory(Base):
 # User bank
 #-----------------------------------------------------------
 
+
 class UserBankDetails(Base):
     __tablename__ = "user_bank_details"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user_id = Column(
         Integer,
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE"
+        ),
         nullable=False,
         unique=True,
         index=True
     )
 
-    # -------------------------
-    # Bank Details
-    # -------------------------
-    bank_account = Column(String, nullable=True)
-    bank_name = Column(String, nullable=True)
-    ifsc = Column(String, nullable=True)
-    bank_proof = Column(String, nullable=True)
+    # ======================================================
+    # BANK DETAILS
+    # ======================================================
 
-    status = Column(
+    bank_account = Column(
+        String,
+        nullable=True
+    )
+
+    bank_name = Column(
+        String,
+        nullable=True
+    )
+
+    ifsc = Column(
+        String,
+        nullable=True
+    )
+
+    bank_proof = Column(
+        String,
+        nullable=True
+    )
+
+    # ======================================================
+    # BANK STATUS
+    # ======================================================
+
+    bank_status = Column(
         String,
         nullable=False,
         default="PENDING"
     )
 
-    rejection_reason = Column(
+    bank_rejection_reason = Column(
         String,
         nullable=True
     )
 
-    # -------------------------
-    # Nominee Details
-    # -------------------------
-    nominee_name = Column(String, nullable=True)
-    nominee_relation = Column(String, nullable=True)
-    nominee_gender = Column(String, nullable=True)
-    nominee_dob = Column(Date, nullable=True)
-    nominee_address = Column(String, nullable=True)
-    nominee_aadhar = Column(String, nullable=True)
-    nominee_mobile = Column(String, nullable=True)
+    # ======================================================
+    # NOMINEE DETAILS
+    # ======================================================
 
-    # -------------------------
-    # Nominee Aadhaar Documents
-    # -------------------------
-    nominee_aadhar_front = Column(String, nullable=True)
-    nominee_aadhar_back = Column(String, nullable=True)
+    nominee_name = Column(
+        String,
+        nullable=True
+    )
 
-    # -------------------------
-    # Timestamps
-    # -------------------------
+    nominee_relation = Column(
+        String,
+        nullable=True
+    )
+
+    nominee_gender = Column(
+        String,
+        nullable=True
+    )
+
+    nominee_dob = Column(
+        Date,
+        nullable=True
+    )
+
+    nominee_address = Column(
+        String,
+        nullable=True
+    )
+
+    nominee_aadhar = Column(
+        String,
+        nullable=True
+    )
+
+    nominee_mobile = Column(
+        String,
+        nullable=True
+    )
+
+    # ======================================================
+    # NOMINEE AADHAAR DOCUMENTS
+    # ======================================================
+
+    nominee_aadhar_front = Column(
+        String,
+        nullable=True
+    )
+
+    nominee_aadhar_back = Column(
+        String,
+        nullable=True
+    )
+
+    # ======================================================
+    # NOMINEE STATUS
+    # ======================================================
+
+    nominee_status = Column(
+        String,
+        nullable=False,
+        default="PENDING"
+    )
+
+    nominee_rejection_reason = Column(
+        String,
+        nullable=True
+    )
+
+    # ======================================================
+    # TIMESTAMPS
+    # ======================================================
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()
@@ -1162,13 +1242,15 @@ class UserBankDetails(Base):
         onupdate=func.now()
     )
 
-    # -------------------------
-    # Relationship
-    # -------------------------
+    # ======================================================
+    # RELATIONSHIP
+    # ======================================================
+
     user = relationship(
         "User",
         back_populates="bank_details"
     )
+
 
 # ==========================================================
 # USER KYC
