@@ -15,6 +15,7 @@ class RegisterUser(BaseModel):
 
     date_of_birth: date
     country: str
+    state: str | None = None
     city: str| None = None
     zip_code: str| None = None
     building_no: str| None = None
@@ -364,8 +365,11 @@ class UpdateProfile(BaseModel):
     last_name: str
     date_of_birth: date
     country: str
+    state: str | None
     city: str
     zip_code: str
+    building_no: str | None
+    street: str | None
     mobile: str
     # aadhar_no: str
     # pan: str

@@ -159,6 +159,8 @@ def register(
 
         country=user.country,
 
+        state=user.state,
+
         city=user.city,
 
         zip_code=user.zip_code,
@@ -503,6 +505,8 @@ def profile(
 
         "country": user.country,
 
+        "state": user.state,
+
         "city": user.city,
 
         "gender": user.gender,
@@ -510,6 +514,11 @@ def profile(
         "profile_image": user.profile_image,
 
         "zip_code": user.zip_code,
+
+        "building_no": user.building_no,
+
+        "street": user.street,
+
 
         "date_of_birth": user.date_of_birth,
 
@@ -614,8 +623,12 @@ def update_profile(
     user.last_name = profile.last_name
     user.date_of_birth = profile.date_of_birth
     user.country = profile.country
+    user.state = profile.state
     user.city = profile.city
     user.zip_code = profile.zip_code
+    user.building_no = profile.building_no
+    user.street = profile.street
+
     user.mobile = profile.mobile
     # user.aadhar_no = profile.aadhar_no
     # user.pan = profile.pan

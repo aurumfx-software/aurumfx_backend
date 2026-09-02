@@ -16,6 +16,7 @@ class User(Base):
     enroller_id = Column(String, nullable=True)
     date_of_birth = Column(Date, nullable=False)
     country = Column(String, nullable=False)
+    state = Column(String, nullable=True) 
     city = Column(String, nullable=True)
     zip_code = Column(String, nullable=True)
     building_no = Column(String, nullable=True)
