@@ -634,6 +634,10 @@ def user_dashboard(
             wallet.balance or 0
         )
 
+        pending_balance = float(
+                    wallet.pending_balance or 0
+        )
+
     # ========================================================
     # TOTAL PAYOUT AMOUNT
     # ========================================================
@@ -851,7 +855,11 @@ def user_dashboard(
             "wallet_balance": (
                 wallet_balance
             ),
-
+            
+             "pending_balance": (
+                pending_balance
+            ),
+            
             "payout_amount": (
                 payout_amount
             ),

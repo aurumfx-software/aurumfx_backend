@@ -964,6 +964,132 @@ def credit_rank_reward(
     return history
 
 
+# # ==========================================================
+# # CHECK AND ASSIGN RANK
+# # ==========================================================
+
+# def check_and_assign_rank(
+#     db: Session,
+#     user: User
+# ):
+#     """
+#     Complete rank qualification flow.
+
+#     Flow:
+
+#         1. Check highest qualified rank
+#         2. Create rank history
+#         3. Set reward_paid=False
+#         4. Add reward to pending_balance
+#         5. Create PENDING wallet transaction
+#         6. Commit everything together
+
+#     Admin fee is NOT calculated here.
+#     """
+
+#     print(
+#         "=========================================="
+#     )
+
+#     print(
+#         "CHECK AND ASSIGN RANK"
+#     )
+
+#     print(
+#         "User:",
+#         user.user_id
+#     )
+
+#     print(
+#         "=========================================="
+#     )
+
+#     try:
+
+#         # --------------------------------------------------
+#         # Find highest qualified rank
+#         # --------------------------------------------------
+
+#         rank = get_highest_qualified_rank(
+#             db,
+#             user
+#         )
+
+#         if not rank:
+
+#             print(
+#                 "No qualified rank."
+#             )
+
+#             return None
+
+#         # --------------------------------------------------
+#         # Assign rank
+#         # --------------------------------------------------
+
+#         history = assign_rank(
+#             db,
+#             user,
+#             rank
+#         )
+
+#         if not history:
+
+#             return None
+
+#         # --------------------------------------------------
+#         # Add reward to pending wallet
+#         # --------------------------------------------------
+
+#         credit_rank_reward(
+#             db,
+#             history
+#         )
+
+#         # --------------------------------------------------
+#         # Commit entire transaction
+#         # --------------------------------------------------
+
+#         db.commit()
+
+#         # --------------------------------------------------
+#         # Refresh history
+#         # --------------------------------------------------
+
+#         db.refresh(history)
+
+#         print(
+#             "Rank process completed successfully."
+#         )
+
+#         print(
+#             "Rank:",
+#             rank.rank_name
+#         )
+
+#         print(
+#             "Reward:",
+#             history.reward_income
+#         )
+
+#         print(
+#             "Reward Status:",
+#             "PENDING"
+#         )
+
+#         return history
+
+#     except Exception as e:
+
+#         db.rollback()
+
+#         print(
+#             "Rank process failed:",
+#             str(e)
+#         )
+
+#         raise
+
 # ==========================================================
 # CHECK AND ASSIGN RANK
 # ==========================================================
@@ -973,42 +1099,57 @@ def check_and_assign_rank(
     user: User
 ):
     """
-    Complete rank qualification flow.
+    Rank qualification flow.
 
-    Flow:
-
-        1. Check highest qualified rank
-        2. Create rank history
-        3. Set reward_paid=False
-        4. Add reward to pending_balance
-        5. Create PENDING wallet transaction
-        6. Commit everything together
-
-    Admin fee is NOT calculated here.
+    Rules:
+        1. Check whether user has ACTIVE + APPROVED investment.
+        2. Check Rank Settings / Rank Conditions.
+        3. If qualified, assign rank.
+        4. Only then create rank reward.
     """
 
-    print(
-        "=========================================="
-    )
-
-    print(
-        "CHECK AND ASSIGN RANK"
-    )
-
-    print(
-        "User:",
-        user.user_id
-    )
-
-    print(
-        "=========================================="
-    )
+    print("==========================================")
+    print("CHECK AND ASSIGN RANK")
+    print("User:", user.user_id)
+    print("==========================================")
 
     try:
 
-        # --------------------------------------------------
-        # Find highest qualified rank
-        # --------------------------------------------------
+        # ==================================================
+        # 1. CHECK ACTIVE INVESTMENT
+        # ==================================================
+
+        active_investment = (
+            db.query(Investment)
+            .filter(
+                Investment.user_id == user.id,
+                Investment.investment_status == "ACTIVE",
+                Investment.approval_status == "APPROVED"
+            )
+            .first()
+        )
+
+        if not active_investment:
+
+            print(
+                "NO ACTIVE INVESTMENT"
+            )
+
+            print(
+                "Rank reward skipped for:",
+                user.user_id
+            )
+
+            return None
+
+        print(
+            "Active investment found:",
+            active_investment.id
+        )
+
+        # ==================================================
+        # 2. FIND HIGHEST QUALIFIED RANK
+        # ==================================================
 
         rank = get_highest_qualified_rank(
             db,
@@ -1023,9 +1164,14 @@ def check_and_assign_rank(
 
             return None
 
-        # --------------------------------------------------
-        # Assign rank
-        # --------------------------------------------------
+        print(
+            "Qualified Rank:",
+            rank.rank_name
+        )
+
+        # ==================================================
+        # 3. ASSIGN RANK
+        # ==================================================
 
         history = assign_rank(
             db,
@@ -1035,31 +1181,36 @@ def check_and_assign_rank(
 
         if not history:
 
+            print(
+                "Rank was not assigned."
+            )
+
             return None
 
-        # --------------------------------------------------
-        # Add reward to pending wallet
-        # --------------------------------------------------
+        # ==================================================
+        # 4. CREDIT RANK REWARD
+        # ==================================================
 
         credit_rank_reward(
             db,
             history
         )
 
-        # --------------------------------------------------
-        # Commit entire transaction
-        # --------------------------------------------------
+        # ==================================================
+        # 5. COMMIT
+        # ==================================================
 
         db.commit()
-
-        # --------------------------------------------------
-        # Refresh history
-        # --------------------------------------------------
 
         db.refresh(history)
 
         print(
             "Rank process completed successfully."
+        )
+
+        print(
+            "User:",
+            user.user_id
         )
 
         print(
@@ -1073,8 +1224,7 @@ def check_and_assign_rank(
         )
 
         print(
-            "Reward Status:",
-            "PENDING"
+            "Reward Status: PENDING"
         )
 
         return history
