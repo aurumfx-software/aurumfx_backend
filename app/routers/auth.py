@@ -215,7 +215,7 @@ def register(
 
         ifsc=user.ifsc,
 
-        status="PENDING",
+        bank_status="PENDING",
 
         # -------------------------
         # Nominee
