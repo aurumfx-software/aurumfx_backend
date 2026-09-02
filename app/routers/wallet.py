@@ -600,16 +600,143 @@ def wallet_summary(
             2
         )
     }
+# @router.get("/transactions")
+# def wallet_transaction_history(
+#     current_user: str = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+
+#     user = get_logged_in_user(
+#         current_user,
+#         db
+#     )
+
+#     wallet = (
+#         db.query(Wallet)
+#         .filter(
+#             Wallet.user_id == user.id
+#         )
+#         .first()
+#     )
+
+#     if not wallet:
+#         return []
+
+#     transactions = (
+#         db.query(WalletTransaction)
+#         .filter(
+#             WalletTransaction.wallet_id == wallet.id
+#         )
+#         .order_by(
+#             WalletTransaction.id.desc()
+#         )
+#         .all()
+#     )
+
+#     response = []
+
+#     for transaction in transactions:
+
+#         from_user = None
+
+#         # ====================================================
+#         # GET FROM USER
+#         # ====================================================
+
+#         if transaction.investment_id:
+
+#             investment = (
+#                 db.query(Investment)
+#                 .filter(
+#                     Investment.id == transaction.investment_id
+#                 )
+#                 .first()
+#             )
+
+#             if investment:
+
+#                 investor = (
+#                     db.query(User)
+#                     .filter(
+#                         User.id == investment.user_id
+#                     )
+#                     .first()
+#                 )
+
+#                 if investor:
+
+#                     from_user = {
+#                         "user_id": investor.user_id,
+#                         "name": (
+#                             f"{investor.first_name or ''} "
+#                             f"{investor.last_name or ''}"
+#                         ).strip()
+#                     }
+
+#         # ====================================================
+#         # PAYMENT TYPE
+#         # ====================================================
+
+#         if transaction.status == "PAID":
+#             payment_type = "CREDIT"
+
+#         elif transaction.status == "PENDING":
+#             payment_type = "DEBIT"
+
+#         else:
+#             payment_type = transaction.status
+
+#         # ====================================================
+#         # RESPONSE
+#         # ====================================================
+
+#         response.append({
+
+#             "id": transaction.id,
+
+#             "from_user": from_user,
+
+#             "transaction_type":
+#                 transaction.transaction_type,
+
+#             "payment_type":
+#                 payment_type,
+
+#             "amount":
+#                 float(transaction.amount or 0),
+
+#             "status":
+#                 transaction.status,
+
+#             "date":
+#                 transaction.created_at
+#         })
+
+#     return response
+
+
+# ============================================================
+# GET USER WALLET TRANSACTIONS
+# ============================================================
+
 @router.get("/transactions")
 def wallet_transaction_history(
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
+    # ========================================================
+    # GET LOGGED-IN USER
+    # ========================================================
+
     user = get_logged_in_user(
         current_user,
         db
     )
+
+    # ========================================================
+    # GET USER WALLET
+    # ========================================================
 
     wallet = (
         db.query(Wallet)
@@ -621,6 +748,10 @@ def wallet_transaction_history(
 
     if not wallet:
         return []
+
+    # ========================================================
+    # GET TRANSACTIONS
+    # ========================================================
 
     transactions = (
         db.query(WalletTransaction)
@@ -637,18 +768,19 @@ def wallet_transaction_history(
 
     for transaction in transactions:
 
-        from_user = None
+        # ====================================================
+        # FROM USER
+        # ====================================================
 
-        # ====================================================
-        # GET FROM USER
-        # ====================================================
+        from_user = None
 
         if transaction.investment_id:
 
             investment = (
                 db.query(Investment)
                 .filter(
-                    Investment.id == transaction.investment_id
+                    Investment.id ==
+                    transaction.investment_id
                 )
                 .first()
             )
@@ -658,32 +790,73 @@ def wallet_transaction_history(
                 investor = (
                     db.query(User)
                     .filter(
-                        User.id == investment.user_id
+                        User.id ==
+                        investment.user_id
                     )
                     .first()
                 )
 
                 if investor:
 
+                    investor_name = (
+                        f"{investor.first_name or ''} "
+                        f"{investor.last_name or ''}"
+                    ).strip()
+
                     from_user = {
                         "user_id": investor.user_id,
-                        "name": (
-                            f"{investor.first_name or ''} "
-                            f"{investor.last_name or ''}"
-                        ).strip()
+                        "name": investor_name
                     }
+
+        # ====================================================
+        # LEVEL
+        # ====================================================
+
+        level = None
+
+        if (
+            transaction.transaction_type
+            == "LEVEL_INCOME"
+            and transaction.investment_id
+        ):
+
+            level_history = (
+                db.query(
+                    LevelCommissionHistory
+                )
+                .filter(
+                    LevelCommissionHistory.investment_id
+                    ==
+                    transaction.investment_id,
+
+                    LevelCommissionHistory.sponsor_id
+                    ==
+                    user.id
+                )
+                .order_by(
+                    LevelCommissionHistory.id.desc()
+                )
+                .first()
+            )
+
+            if level_history:
+
+                level = level_history.level
 
         # ====================================================
         # PAYMENT TYPE
         # ====================================================
 
         if transaction.status == "PAID":
+
             payment_type = "CREDIT"
 
         elif transaction.status == "PENDING":
-            payment_type = "DEBIT"
+
+            payment_type = "PENDING"
 
         else:
+
             payment_type = transaction.status
 
         # ====================================================
@@ -692,27 +865,71 @@ def wallet_transaction_history(
 
         response.append({
 
-            "id": transaction.id,
+            "id":
+                transaction.id,
 
-            "from_user": from_user,
+            # ------------------------------------------------
+            # FROM USER
+            # ------------------------------------------------
+
+            "from_user":
+                from_user,
+
+            # ------------------------------------------------
+            # INVESTMENT
+            # ------------------------------------------------
+
+            "investment_id":
+                transaction.investment_id,
+
+            # ------------------------------------------------
+            # LEVEL
+            # ------------------------------------------------
+
+            "level":
+                level,
+
+            # ------------------------------------------------
+            # TRANSACTION TYPE
+            # ------------------------------------------------
 
             "transaction_type":
                 transaction.transaction_type,
 
+            # ------------------------------------------------
+            # PAYMENT TYPE
+            # ------------------------------------------------
+
             "payment_type":
                 payment_type,
 
+            # ------------------------------------------------
+            # AMOUNT
+            # ------------------------------------------------
+
             "amount":
-                float(transaction.amount or 0),
+                float(
+                    transaction.amount or 0
+                ),
+
+            # ------------------------------------------------
+            # STATUS
+            # ------------------------------------------------
 
             "status":
                 transaction.status,
+
+            # ------------------------------------------------
+            # DATE
+            # ------------------------------------------------
 
             "date":
                 transaction.created_at
         })
 
     return response
+
+
 # ============================================================
 # Referral Commission History
 # ============================================================
