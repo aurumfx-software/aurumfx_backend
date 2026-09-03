@@ -348,18 +348,18 @@ def get_all_wallet_transactions(
     # PAGINATION
     # ========================================================
 
-    page: int = Query(
-        1,
-        ge=1,
-        description="Page number"
-    ),
+    # page: int = Query(
+    #     1,
+    #     ge=1,
+    #     description="Page number"
+    # ),
 
-    limit: int = Query(
-        20,
-        ge=1,
-        le=100,
-        description="Number of records per page"
-    ),
+    # limit: int = Query(
+    #     20,
+    #     ge=1,
+    #     le=100,
+    #     description="Number of records per page"
+    # ),
 
     # ========================================================
     # FILTERS
@@ -510,19 +510,19 @@ def get_all_wallet_transactions(
     # TOTAL PAGES
     # ========================================================
 
-    total_pages = (
-        (total + limit - 1)
-        // limit
-    )
+    # total_pages = (
+    #     (total + limit - 1)
+    #     // limit
+    # )
 
     # ========================================================
     # OFFSET
     # ========================================================
 
-    offset = (
-        (page - 1)
-        * limit
-    )
+    # offset = (
+    #     (page - 1)
+    #     * limit
+    # )
 
     # ========================================================
     # PAGINATED TRANSACTIONS
@@ -533,8 +533,8 @@ def get_all_wallet_transactions(
         .order_by(
             WalletTransaction.id.desc()
         )
-        .offset(offset)
-        .limit(limit)
+        # .offset(offset)
+        # .limit(limit)
         .all()
     )
 
@@ -758,24 +758,24 @@ def get_all_wallet_transactions(
         "data":
             response,
 
-        "pagination": {
+        # "pagination": {
 
-            "page":
-                page,
+        #     "page":
+        #         page,
 
-            "limit":
-                limit,
+        #     "limit":
+        #         limit,
 
-            "total":
-                total,
+        #     "total":
+        #         total,
 
-            "total_pages":
-                total_pages,
+        #     "total_pages":
+        #         total_pages,
 
-            "has_next":
-                page < total_pages,
+        #     "has_next":
+        #         page < total_pages,
 
-            "has_previous":
-                page > 1
-        }
+        #     "has_previous":
+        #         page > 1
+        # }
     }
