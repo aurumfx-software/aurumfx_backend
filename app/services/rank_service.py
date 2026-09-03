@@ -139,33 +139,17 @@ def get_direct_sponsor_group_lots(
     user: User
 ):
     """
-    Calculate complete group lots for every
-    direct sponsor.
+    Get ACTIVE direct sponsors only.
 
-    Example:
+    A direct sponsor is counted only when
+    that sponsor personally has at least one
+    ACTIVE + APPROVED investment.
 
-        FX009
-        |
-        +-- FX016
-        |    +-- User A
-        |    +-- User B
-        |
-        +-- FX014
-        |
-        +-- FX015
-
-    Groups:
-
-        FX016 = FX016 + complete downline
-        FX014 = FX014 + complete downline
-        FX015 = FX015 + complete downline
-
-    Only ACTIVE + APPROVED investment lots count.
+    Group lots include:
+        sponsor's own ACTIVE + APPROVED lots
+        +
+        complete recursive downline
     """
-
-    # ------------------------------------------------------
-    # GET DIRECT SPONSORS
-    # ------------------------------------------------------
 
     directs = (
         db.query(User)
@@ -177,42 +161,69 @@ def get_direct_sponsor_group_lots(
 
     group_lots = []
 
-    # ------------------------------------------------------
-    # CALCULATE EACH COMPLETE GROUP
-    # ------------------------------------------------------
-
     for sponsor in directs:
 
-        lots = get_team_lots(
+        # --------------------------------------------------
+        # Sponsor's OWN active lots
+        # --------------------------------------------------
+
+        sponsor_self_lots = get_self_lots(
+            db,
+            sponsor.id
+        )
+
+        # --------------------------------------------------
+        # IMPORTANT:
+        # Direct sponsor only counts if
+        # THEY personally have active investment
+        # --------------------------------------------------
+
+        if sponsor_self_lots <= 0:
+
+            print("--------------------------------")
+            print(
+                "DIRECT SPONSOR NOT ACTIVE:",
+                sponsor.user_id
+            )
+            print(
+                "Own Active Lots:",
+                sponsor_self_lots
+            )
+            print("--------------------------------")
+
+            continue
+
+        # --------------------------------------------------
+        # Complete group
+        # --------------------------------------------------
+
+        total_group_lots = get_team_lots(
             db,
             sponsor
         )
 
         group_lots.append(
-            int(lots)
+            int(total_group_lots)
         )
 
-        print("------------------------------------------")
+        print("--------------------------------")
         print(
-            "Direct Sponsor:",
+            "ACTIVE DIRECT SPONSOR:",
             sponsor.user_id
         )
         print(
-            "Group Lots:",
-            lots
+            "Sponsor Own Active Lots:",
+            sponsor_self_lots
         )
-        print("------------------------------------------")
+        print(
+            "Complete Group Active Lots:",
+            total_group_lots
+        )
+        print("--------------------------------")
 
-    # ------------------------------------------------------
-    # HIGHEST GROUP FIRST
-    # ------------------------------------------------------
-
-    group_lots.sort(
-        reverse=True
-    )
+    group_lots.sort(reverse=True)
 
     return group_lots
-
 
 # ==========================================================
 # CHECK RANK CONDITIONS
