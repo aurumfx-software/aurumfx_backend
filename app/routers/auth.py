@@ -161,6 +161,9 @@ def register(
 
         state=user.state,
 
+        district=user.district,
+
+
         city=user.city,
 
         zip_code=user.zip_code,
@@ -507,6 +510,9 @@ def profile(
 
         "state": user.state,
 
+        "district": user.district,
+
+
         "city": user.city,
 
         "gender": user.gender,
@@ -624,6 +630,7 @@ def update_profile(
     user.date_of_birth = profile.date_of_birth
     user.country = profile.country
     user.state = profile.state
+    user.district = profile.district
     user.city = profile.city
     user.zip_code = profile.zip_code
     user.building_no = profile.building_no

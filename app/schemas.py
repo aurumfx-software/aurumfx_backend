@@ -16,6 +16,7 @@ class RegisterUser(BaseModel):
     date_of_birth: date
     country: str
     state: str | None = None
+    district: str | None = None
     city: str| None = None
     zip_code: str| None = None
     building_no: str| None = None
@@ -366,6 +367,7 @@ class UpdateProfile(BaseModel):
     date_of_birth: date
     country: str
     state: str | None
+    district: str | None
     city: str
     zip_code: str
     building_no: str | None
