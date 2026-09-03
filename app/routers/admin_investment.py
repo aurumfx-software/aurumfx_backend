@@ -118,6 +118,7 @@ def all_requests(
         )
 
     return response
+
 # --------------------------------------------------
 # Pending Investments
 # --------------------------------------------------
@@ -140,6 +141,9 @@ def pending_investments(
         )
     )
 
+    # --------------------------------------------------
+    # Filter by User ID
+    # --------------------------------------------------
     if user_id:
 
         user = (
@@ -158,18 +162,33 @@ def pending_investments(
             Investment.user_id == user.id
         )
 
+    # --------------------------------------------------
+    # Filter by Start Date
+    # --------------------------------------------------
     if start_date:
         query = query.filter(
             Investment.investment_date >= start_date
         )
 
+    # --------------------------------------------------
+    # Filter by End Date
+    # --------------------------------------------------
     if end_date:
         query = query.filter(
             Investment.investment_date <= end_date
         )
 
+    # --------------------------------------------------
+    # OLD CREATED INVESTMENTS FIRST
+    # investment_date ASC
+    # id ASC = tie breaker / first created
+    # --------------------------------------------------
     investments = (
-        query.order_by(Investment.investment_date.asc())
+        query
+        .order_by(
+            Investment.investment_date.asc(),
+            Investment.id.asc()
+        )
         .all()
     )
 
@@ -212,12 +231,14 @@ def pending_investments(
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
                 investment_date=inv.investment_date,
-                payment_proof=get_presigned_url(inv.payment_proof),
-
+                payment_proof=get_presigned_url(
+                    inv.payment_proof
+                ),
             )
         )
 
     return response
+
 
 # --------------------------------------------------
 # Active Investments
