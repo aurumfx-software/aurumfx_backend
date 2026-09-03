@@ -78,7 +78,8 @@ def get_user_total_investment(
         )
         .scalar()
     )
-
+    print("user_id:", user_id)
+    print("investment amount:",total)
     return float(total or 0)
 
 
@@ -627,6 +628,7 @@ def user_dashboard(
     )
 
     wallet_balance = 0.0
+    pending_balance =0.0
 
     if wallet:
 
