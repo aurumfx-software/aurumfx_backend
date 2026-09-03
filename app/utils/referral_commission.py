@@ -92,9 +92,9 @@ def create_referral_commission(
 
         return None
 
-    # ======================================================
-    # ENROLLER
-    # ======================================================
+    # ============================================================
+    # FIND SPONSOR
+    # ============================================================
 
     enroller = (
         db.query(User)
@@ -105,64 +105,68 @@ def create_referral_commission(
     )
 
     if not enroller:
+        return
 
-        print(
-            "Referral commission skipped: "
-            "Enroller not found"
-        )
 
-        return None
+    # ============================================================
+    # FIND SPONSOR ACTIVE + APPROVED INVESTMENT
+    # ============================================================
 
-    # ======================================================
-    # CHECK ENROLLER ACTIVE INVESTMENT
-    # ======================================================
-
-    active_investment = (
+    sponsor_investment = (
         db.query(Investment)
         .filter(
             Investment.user_id == enroller.id,
             Investment.investment_status == "ACTIVE",
+            Investment.approval_status == "APPROVED",
+        )
+        .order_by(
+            Investment.amount.desc()
         )
         .first()
     )
 
-    if not active_investment:
+    if not sponsor_investment:
+        return
 
-        print(
-            "Referral commission skipped: "
-            f"Enroller {enroller.user_id} "
-            "has no active investment"
-        )
 
-        return None
+    # ============================================================
+    # SPONSOR INVESTMENT DETAILS
+    # ============================================================
 
-    # ======================================================
-    # REFERRAL COMMISSION SETTING
-    # ======================================================
+    sponsor_plan_id = sponsor_investment.investment_plan_id
+
+    sponsor_investment_amount = float(
+        sponsor_investment.amount or 0
+    )
+
+
+    # ============================================================
+    # FIND REFERRAL COMMISSION SETTING
+    #
+    # Match:
+    #   1. Sponsor's investment plan
+    #   2. Sponsor's investment amount
+    # ============================================================
 
     referral_setting = (
-        db.query(
-            ReferralCommissionSetting
-        )
+        db.query(ReferralCommissionSetting)
         .filter(
             ReferralCommissionSetting.investment_plan_id
-            == investment.investment_plan_id,
+            == sponsor_plan_id,
 
             ReferralCommissionSetting.minimum_amount
-            <= investment.amount,
+            <= sponsor_investment_amount,
 
-            ReferralCommissionSetting.status
-            == True,
+            ReferralCommissionSetting.status == True,
         )
         .filter(
             (
-                ReferralCommissionSetting.maximum_amount
-                == None
+                ReferralCommissionSetting.maximum_amount.is_(None)
             )
             |
             (
                 ReferralCommissionSetting.maximum_amount
-                >= investment.amount
+                >= sponsor_investment_amount
             )
         )
         .order_by(
@@ -171,42 +175,40 @@ def create_referral_commission(
         .first()
     )
 
-    # ======================================================
-    # NO REFERRAL SETTING
-    # ======================================================
+
+    # ============================================================
+    # NO MATCHING REFERRAL SETTING
+    # ============================================================
 
     if not referral_setting:
+        return
 
-        print(
-            "Referral commission skipped: "
-            "No matching referral setting"
-        )
-
-        return None
-
-    # ======================================================
-    # COMMISSION PERCENTAGE
-    # ======================================================
-
-    commission_percentage = float(
-        referral_setting.commission_percentage
-        or 0
-    )
-
-    # ======================================================
-    # INVESTMENT AMOUNT
-    # ======================================================
+    # ============================================================
+    # INVESTOR INVESTMENT AMOUNT
+    # This is the amount on which commission is calculated
+    # ============================================================
 
     investment_amount = float(
         investment.amount or 0
     )
+    # ============================================================
+    # CALCULATE COMMISSION
+    #
+    # IMPORTANT:
+    # Percentage is selected using SPONSOR investment.
+    # Commission amount is calculated using INVESTOR investment.
+    # ============================================================
 
-    # ======================================================
-    # GROSS REFERRAL COMMISSION
-    # ======================================================
+    commission_percentage = float(
+        referral_setting.commission_percentage or 0
+    )
+
+    investor_investment_amount = float(
+        investment.amount or 0
+    )
 
     gross_commission = (
-        investment_amount
+        investor_investment_amount
         * commission_percentage
     ) / 100
 
