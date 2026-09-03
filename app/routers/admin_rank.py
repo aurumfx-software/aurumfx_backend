@@ -16,6 +16,8 @@ from app.schemas import (
     AdminRankSettingResponse
 )
 from app.core.security import get_current_user
+from datetime import datetime, time, timedelta
+
 
 router = APIRouter(
     prefix="/admin/ranks",
@@ -290,6 +292,118 @@ def delete_rank(
 
 
 
+
+# ============================================================
+# GET ALL RANK HOLDERS
+# ============================================================
+
+@router.get(
+    "/all/holders",
+    response_model=list[RankHolderResponse]
+)
+def get_all_rank_holders(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin)
+
+):
+    """
+    Get all users who currently hold any rank,
+    ordered by rank achievement date (latest first).
+    """
+
+    holders = (
+        db.query(
+            User,
+            UserRankHistory.achieved_at
+        )
+        .join(
+            UserRankHistory,
+            UserRankHistory.user_id == User.id
+        )
+        .filter(
+            User.current_rank_id == UserRankHistory.rank_id
+        )
+        .order_by(
+            UserRankHistory.achieved_at.desc()
+        )
+        .all()
+    )
+
+    return [
+        RankHolderResponse(
+            id=user.id,
+            user_id=user.user_id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            rank_id=user.current_rank_id,
+            image=user.profile_image,
+            achieved_at=achieved_at,
+        )
+        for user, achieved_at in holders
+    ]
+
+
+
+@router.get(
+    "/today/holders",
+    response_model=list[RankHolderResponse]
+)
+def get_today_rank_holders(
+    db: Session = Depends(get_db)
+):
+    """
+    Get users who achieved their current rank today,
+    ordered by achievement time (latest first).
+    """
+
+    today = datetime.now().date()
+
+    start_of_day = datetime.combine(
+        today,
+        time.min
+    )
+
+    start_of_tomorrow = start_of_day + timedelta(days=1)
+
+    holders = (
+        db.query(
+            User,
+            UserRankHistory.achieved_at
+        )
+        .join(
+            UserRankHistory,
+            UserRankHistory.user_id == User.id
+        )
+        .filter(
+            # User currently has this rank
+            User.current_rank_id == UserRankHistory.rank_id,
+
+            # Achieved today
+            UserRankHistory.achieved_at >= start_of_day,
+            UserRankHistory.achieved_at < start_of_tomorrow
+        )
+        .order_by(
+            UserRankHistory.achieved_at.desc()
+        )
+        .all()
+    )
+
+    return [
+        RankHolderResponse(
+            id=user.id,
+            user_id=user.user_id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            rank_id=user.current_rank_id,
+            image=user.profile_image,
+            achieved_at=achieved_at,
+        )
+        for user, achieved_at in holders
+    ]
+# ============================================================
+# GET HOLDERS OF SPECIFIC RANK
+# ============================================================
+
 @router.get(
     "/{rank_id}/holders",
     response_model=list[RankHolderResponse]
@@ -316,7 +430,10 @@ def get_rank_holders(
         )
 
     holders = (
-        db.query(User, UserRankHistory.achieved_at)
+        db.query(
+            User,
+            UserRankHistory.achieved_at
+        )
         .join(
             UserRankHistory,
             UserRankHistory.user_id == User.id
@@ -326,7 +443,7 @@ def get_rank_holders(
             UserRankHistory.rank_id == rank_id
         )
         .order_by(
-            User.id.asc()
+            UserRankHistory.achieved_at.desc()
         )
         .all()
     )
@@ -343,3 +460,4 @@ def get_rank_holders(
         )
         for user, achieved_at in holders
     ]
+
