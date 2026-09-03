@@ -24,8 +24,8 @@ def get_self_lots(
     Get total ACTIVE + APPROVED investment lots
     directly owned by the user.
 
-    IMPORTANT:
-        Only ACTIVE investments are counted.
+    Only ACTIVE + APPROVED investments count
+    for rank qualification.
     """
 
     total_lots = (
@@ -38,11 +38,16 @@ def get_self_lots(
         .filter(
             Investment.user_id == user_id,
 
-            # IMPORTANT:
-            # Only ACTIVE investments count
+            # ----------------------------------------------
+            # ONLY ACTIVE INVESTMENTS
+            # ----------------------------------------------
+
             Investment.investment_status == "ACTIVE",
 
-            # Only APPROVED investments count
+            # ----------------------------------------------
+            # ONLY APPROVED INVESTMENTS
+            # ----------------------------------------------
+
             Investment.approval_status == "APPROVED"
         )
         .scalar()
@@ -59,10 +64,39 @@ def get_team_lots(
     db: Session,
     user: User
 ):
-    
+    """
+    Get complete team lots.
+
+    Includes:
+
+        User's own ACTIVE + APPROVED lots
+        +
+        Direct children
+        +
+        Their children
+        +
+        Complete recursive downline
+
+    Example:
+
+        FX009
+        |
+        +-- FX016
+        |   +-- A
+        |   |   +-- B
+        |   |
+        |   +-- C
+        |
+        +-- FX014
+        |
+        +-- FX015
+
+    Team lots for FX009 include all ACTIVE +
+    APPROVED investments in the complete tree.
+    """
 
     # ------------------------------------------------------
-    # SELF LOTS
+    # USER'S OWN ACTIVE LOTS
     # ------------------------------------------------------
 
     total = get_self_lots(
@@ -71,7 +105,7 @@ def get_team_lots(
     )
 
     # ------------------------------------------------------
-    # DIRECT CHILDREN
+    # GET DIRECT CHILDREN
     # ------------------------------------------------------
 
     children = (
@@ -104,7 +138,31 @@ def get_direct_sponsor_group_lots(
     db: Session,
     user: User
 ):
-    
+    """
+    Calculate complete group lots for every
+    direct sponsor.
+
+    Example:
+
+        FX009
+        |
+        +-- FX016
+        |    +-- User A
+        |    +-- User B
+        |
+        +-- FX014
+        |
+        +-- FX015
+
+    Groups:
+
+        FX016 = FX016 + complete downline
+        FX014 = FX014 + complete downline
+        FX015 = FX015 + complete downline
+
+    Only ACTIVE + APPROVED investment lots count.
+    """
+
     # ------------------------------------------------------
     # GET DIRECT SPONSORS
     # ------------------------------------------------------
@@ -165,7 +223,34 @@ def check_rank_conditions(
     rank: RankSetting,
     group_lots: list[int]
 ):
-    
+    """
+    Check custom group conditions for a rank.
+
+    Example:
+
+        minimum_group_lots = 50
+        required_group_count = 1
+
+    Means:
+
+        At least ONE direct sponsor group
+        must contain 50 or more ACTIVE +
+        APPROVED lots.
+
+    Another example:
+
+        condition 1:
+            50 lots
+            2 groups
+
+        condition 2:
+            100 lots
+            1 group
+
+    The same sponsor group cannot be reused
+    for multiple conditions.
+    """
+
     # ------------------------------------------------------
     # COPY GROUP LOTS
     # ------------------------------------------------------
@@ -173,7 +258,7 @@ def check_rank_conditions(
     remaining_groups = group_lots.copy()
 
     # ------------------------------------------------------
-    # GET RANK CONDITIONS
+    # GET CONDITIONS
     # ------------------------------------------------------
 
     conditions = (
@@ -193,6 +278,10 @@ def check_rank_conditions(
 
     if not conditions:
 
+        print(
+            "No custom rank conditions."
+        )
+
         return True
 
     # ------------------------------------------------------
@@ -201,55 +290,80 @@ def check_rank_conditions(
 
     for condition in conditions:
 
-        matched = []
+        minimum_group_lots = int(
+            condition.minimum_group_lots or 0
+        )
+
+        required_group_count = int(
+            condition.required_group_count or 0
+        )
 
         # --------------------------------------------------
-        # FIND GROUPS THAT SATISFY CONDITION
+        # FIND MATCHING GROUPS
         # --------------------------------------------------
+
+        matched = []
 
         for lots in remaining_groups:
 
-            if (
-                lots
-                >= condition.minimum_group_lots
-            ):
+            if lots >= minimum_group_lots:
 
                 matched.append(
                     lots
                 )
 
         # --------------------------------------------------
+        # LOG CONDITION
+        # --------------------------------------------------
+
+        print("--------------------------------")
+        print(
+            "Checking Rank Condition"
+        )
+
+        print(
+            "Rank:",
+            rank.rank_name
+        )
+
+        print(
+            "Minimum Group Lots:",
+            minimum_group_lots
+        )
+
+        print(
+            "Required Group Count:",
+            required_group_count
+        )
+
+        print(
+            "All Groups:",
+            group_lots
+        )
+
+        print(
+            "Matching Groups:",
+            matched
+        )
+
+        # --------------------------------------------------
         # NOT ENOUGH GROUPS
         # --------------------------------------------------
 
-        if (
-            len(matched)
-            < condition.required_group_count
-        ):
+        if len(matched) < required_group_count:
 
-            print("--------------------------------")
             print(
                 "RANK CONDITION FAILED"
             )
 
             print(
-                "Rank:",
-                rank.rank_name
+                "Required:",
+                required_group_count
             )
 
             print(
-                "Required Group Lots:",
-                condition.minimum_group_lots
-            )
-
-            print(
-                "Required Group Count:",
-                condition.required_group_count
-            )
-
-            print(
-                "Available Matching Groups:",
-                matched
+                "Available:",
+                len(matched)
             )
 
             print("--------------------------------")
@@ -265,11 +379,14 @@ def check_rank_conditions(
         )
 
         selected = matched[
-            :condition.required_group_count
+            :required_group_count
         ]
 
         # --------------------------------------------------
         # REMOVE SELECTED GROUPS
+        #
+        # This prevents one group from being
+        # reused for another condition.
         # --------------------------------------------------
 
         for value in selected:
@@ -278,9 +395,25 @@ def check_rank_conditions(
                 value
             )
 
+        print(
+            "Condition PASSED"
+        )
+
+        print(
+            "Selected Groups:",
+            selected
+        )
+
+        print("--------------------------------")
+
     # ------------------------------------------------------
     # ALL CONDITIONS PASSED
     # ------------------------------------------------------
+
+    print(
+        "ALL RANK CONDITIONS PASSED:",
+        rank.rank_name
+    )
 
     return True
 
@@ -293,7 +426,18 @@ def get_highest_qualified_rank(
     db: Session,
     user: User
 ):
-    
+    """
+    Find the highest rank currently qualified
+    by the user.
+
+    Rank requirements:
+
+        1. Minimum total ACTIVE + APPROVED lots
+        2. Minimum direct sponsors
+        3. Custom direct sponsor group conditions
+    """
+
+    print("")
     print("--------------------------------")
     print(
         "Checking Rank For:",
@@ -301,36 +445,40 @@ def get_highest_qualified_rank(
     )
     print("--------------------------------")
 
-    # ------------------------------------------------------
+    # ======================================================
     # TOTAL TEAM LOTS
-    #
-    # Includes:
-    #
-    #   Own lots
-    #   +
-    #   Complete downline
-    # ------------------------------------------------------
+    # ======================================================
 
     total_lots = get_team_lots(
         db,
         user
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # DIRECT SPONSOR GROUP LOTS
-    #
-    # Each direct sponsor gets a separate group.
-    # ------------------------------------------------------
+    # ======================================================
 
-    group_lots = (
-        get_direct_sponsor_group_lots(
-            db,
-            user
-        )
+    group_lots = get_direct_sponsor_group_lots(
+        db,
+        user
+    )
+
+    # ======================================================
+    # LOG SUMMARY
+    # ======================================================
+
+    print("")
+    print("================================")
+    print("RANK CALCULATION")
+    print("================================")
+
+    print(
+        "User:",
+        user.user_id
     )
 
     print(
-        "Total Team Lots:",
+        "Total Active Team Lots:",
         total_lots
     )
 
@@ -344,11 +492,13 @@ def get_highest_qualified_rank(
         len(group_lots)
     )
 
-    # ------------------------------------------------------
+    print("================================")
+
+    # ======================================================
     # GET ACTIVE RANKS
     #
     # HIGHEST RANK FIRST
-    # ------------------------------------------------------
+    # ======================================================
 
     ranks = (
         db.query(RankSetting)
@@ -361,9 +511,9 @@ def get_highest_qualified_rank(
         .all()
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # CHECK EACH RANK
-    # ------------------------------------------------------
+    # ======================================================
 
     for rank in ranks:
 
@@ -379,31 +529,28 @@ def get_highest_qualified_rank(
         )
         print("================================")
 
-        # --------------------------------------------------
-        # MINIMUM TOTAL LOTS
-        # --------------------------------------------------
+        # ==================================================
+        # 1. MINIMUM TOTAL LOTS
+        # ==================================================
 
         minimum_total_lots = int(
             rank.minimum_total_lots or 0
         )
 
-        if (
+        print(
+            "Minimum Total Lots Required:",
+            minimum_total_lots
+        )
+
+        print(
+            "Actual Total Active Lots:",
             total_lots
-            < minimum_total_lots
-        ):
+        )
+
+        if total_lots < minimum_total_lots:
 
             print(
                 "FAILED: Minimum Total Lots"
-            )
-
-            print(
-                "Required:",
-                minimum_total_lots
-            )
-
-            print(
-                "Actual:",
-                total_lots
             )
 
             continue
@@ -412,31 +559,28 @@ def get_highest_qualified_rank(
             "PASSED: Minimum Total Lots"
         )
 
-        # --------------------------------------------------
-        # MINIMUM DIRECT SPONSORS
-        # --------------------------------------------------
+        # ==================================================
+        # 2. MINIMUM DIRECT SPONSORS
+        # ==================================================
 
         minimum_direct_sponsors = int(
             rank.minimum_direct_sponsors or 0
         )
 
-        if (
+        print(
+            "Minimum Direct Sponsors Required:",
+            minimum_direct_sponsors
+        )
+
+        print(
+            "Actual Direct Sponsors:",
             len(group_lots)
-            < minimum_direct_sponsors
-        ):
+        )
+
+        if len(group_lots) < minimum_direct_sponsors:
 
             print(
                 "FAILED: Minimum Direct Sponsors"
-            )
-
-            print(
-                "Required:",
-                minimum_direct_sponsors
-            )
-
-            print(
-                "Actual:",
-                len(group_lots)
             )
 
             continue
@@ -445,16 +589,14 @@ def get_highest_qualified_rank(
             "PASSED: Minimum Direct Sponsors"
         )
 
-        # --------------------------------------------------
-        # CUSTOM GROUP CONDITIONS
-        # --------------------------------------------------
+        # ==================================================
+        # 3. CUSTOM GROUP CONDITIONS
+        # ==================================================
 
-        conditions_passed = (
-            check_rank_conditions(
-                db,
-                rank,
-                group_lots
-            )
+        conditions_passed = check_rank_conditions(
+            db,
+            rank,
+            group_lots
         )
 
         if not conditions_passed:
@@ -465,9 +607,9 @@ def get_highest_qualified_rank(
 
             continue
 
-        # --------------------------------------------------
-        # QUALIFIED
-        # --------------------------------------------------
+        # ==================================================
+        # RANK QUALIFIED
+        # ==================================================
 
         print("")
         print("================================")
@@ -479,14 +621,14 @@ def get_highest_qualified_rank(
 
         return rank
 
-    # ------------------------------------------------------
-    # NO RANK
-    # ------------------------------------------------------
+    # ======================================================
+    # NO RANK QUALIFIED
+    # ======================================================
 
     print("")
     print("--------------------------------")
     print(
-        "No rank qualified for:",
+        "NO RANK QUALIFIED FOR:",
         user.user_id
     )
     print("--------------------------------")
@@ -503,11 +645,17 @@ def assign_rank(
     user: User,
     rank: RankSetting
 ):
-   
+    """
+    Assign the qualified rank.
 
-    # ------------------------------------------------------
-    # CHECK IF THIS RANK WAS ALREADY ASSIGNED
-    # ------------------------------------------------------
+    A user cannot receive the same rank twice.
+
+    Rank reward is initially PENDING.
+    """
+
+    # ======================================================
+    # CHECK EXISTING RANK HISTORY
+    # ======================================================
 
     existing = (
         db.query(UserRankHistory)
@@ -520,33 +668,39 @@ def assign_rank(
 
     if existing:
 
+        print("")
+        print("--------------------------------")
         print(
-            "Rank already assigned:",
+            "RANK ALREADY ASSIGNED:",
             rank.rank_name
         )
+        print(
+            "User:",
+            user.user_id
+        )
+        print("--------------------------------")
 
         return None
 
-    # ------------------------------------------------------
+    # ======================================================
     # UPDATE CURRENT RANK
-    # ------------------------------------------------------
+    # ======================================================
 
     user.current_rank_id = rank.id
 
-    # ------------------------------------------------------
-    # RANK REWARD
-    # ------------------------------------------------------
+    # ======================================================
+    # GET REWARD
+    # ======================================================
 
     reward_amount = float(
         rank.reward_income or 0
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # CREATE RANK HISTORY
-    # ------------------------------------------------------
+    # ======================================================
 
     history = UserRankHistory(
-
         user_id=user.id,
 
         rank_id=rank.id,
@@ -556,13 +710,17 @@ def assign_rank(
         reward_paid=False,
 
         paid_at=None
-
     )
 
     db.add(history)
 
     db.flush()
 
+    # ======================================================
+    # LOG
+    # ======================================================
+
+    print("")
     print("--------------------------------")
     print("RANK ASSIGNED")
     print("--------------------------------")
@@ -588,7 +746,7 @@ def assign_rank(
     )
 
     print(
-        "Status:",
+        "Reward Status:",
         "PENDING"
     )
 
@@ -605,11 +763,27 @@ def credit_rank_reward(
     db: Session,
     history: UserRankHistory
 ):
-    
+    """
+    Credit rank reward to wallet.pending_balance.
 
-    # ------------------------------------------------------
+    IMPORTANT:
+
+        wallet.balance
+            = available/paid balance
+
+        wallet.pending_balance
+            = generated but not yet paid
+
+    Rank reward is NOT added to wallet.balance.
+
+    Admin fee is NOT deducted here.
+
+    Admin fee is deducted later during payout.
+    """
+
+    # ======================================================
     # CHECK ALREADY PAID
-    # ------------------------------------------------------
+    # ======================================================
 
     if history.reward_paid:
 
@@ -620,9 +794,9 @@ def credit_rank_reward(
 
         return history
 
-    # ------------------------------------------------------
-    # REWARD AMOUNT
-    # ------------------------------------------------------
+    # ======================================================
+    # GET REWARD AMOUNT
+    # ======================================================
 
     reward_amount = float(
         history.reward_income or 0
@@ -637,9 +811,9 @@ def credit_rank_reward(
 
         return history
 
-    # ------------------------------------------------------
-    # GET WALLET
-    # ------------------------------------------------------
+    # ======================================================
+    # GET USER WALLET
+    # ======================================================
 
     wallet = (
         db.query(Wallet)
@@ -649,16 +823,19 @@ def credit_rank_reward(
         .first()
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # CREATE WALLET IF MISSING
-    # ------------------------------------------------------
+    # ======================================================
 
     if not wallet:
 
         wallet = Wallet(
             user_id=history.user_id,
+
             balance=0,
+
             pending_balance=0,
+
             admin_fee=0
         )
 
@@ -666,9 +843,9 @@ def credit_rank_reward(
 
         db.flush()
 
-    # ------------------------------------------------------
-    # CURRENT WALLET VALUES
-    # ------------------------------------------------------
+    # ======================================================
+    # CURRENT VALUES
+    # ======================================================
 
     wallet_balance_before = float(
         wallet.balance or 0
@@ -678,21 +855,20 @@ def credit_rank_reward(
         wallet.pending_balance or 0
     )
 
-    # ------------------------------------------------------
-    # ADD TO PENDING BALANCE
-    # ------------------------------------------------------
+    # ======================================================
+    # ADD REWARD TO PENDING BALANCE
+    # ======================================================
 
     wallet.pending_balance = (
         pending_before
         + reward_amount
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # CREATE WALLET TRANSACTION
-    # ------------------------------------------------------
+    # ======================================================
 
     transaction = WalletTransaction(
-
         wallet_id=wallet.id,
 
         investment_id=None,
@@ -707,14 +883,13 @@ def credit_rank_reward(
             f"Pending Rank Reward "
             f"for Rank ID {history.rank_id}"
         )
-
     )
 
     db.add(transaction)
 
-    # ------------------------------------------------------
-    # KEEP RANK HISTORY PENDING
-    # ------------------------------------------------------
+    # ======================================================
+    # KEEP HISTORY PENDING
+    # ======================================================
 
     history.reward_paid = False
 
@@ -722,10 +897,11 @@ def credit_rank_reward(
 
     db.flush()
 
-    # ------------------------------------------------------
-    # LOGS
-    # ------------------------------------------------------
+    # ======================================================
+    # LOG
+    # ======================================================
 
+    print("")
     print("--------------------------------")
     print("RANK REWARD")
     print("--------------------------------")
@@ -793,12 +969,28 @@ def check_and_assign_rank(
     db: Session,
     user: User
 ):
-    
+    """
+    Complete rank qualification flow.
+
+    Steps:
+
+        1. User must have ACTIVE + APPROVED investment.
+        2. Calculate total ACTIVE + APPROVED team lots.
+        3. Calculate direct sponsor groups.
+        4. Check rank requirements.
+        5. Assign highest qualified rank.
+        6. Create pending rank reward.
+        7. Add reward to wallet.pending_balance.
+        8. Create pending wallet transaction.
+    """
 
     print("")
     print("==========================================")
     print("CHECK AND ASSIGN RANK")
-    print("User:", user.user_id)
+    print(
+        "User:",
+        user.user_id
+    )
     print("==========================================")
 
     try:
@@ -819,21 +1011,26 @@ def check_and_assign_rank(
             .first()
         )
 
+        # --------------------------------------------------
+        # USER DOES NOT HAVE ACTIVE INVESTMENT
+        # --------------------------------------------------
+
         if not active_investment:
 
+            print("")
             print(
-                "NO ACTIVE INVESTMENT"
+                "NO ACTIVE + APPROVED INVESTMENT"
             )
 
             print(
-                "Rank reward skipped for:",
+                "Rank process skipped for:",
                 user.user_id
             )
 
             return None
 
         print(
-            "Active investment found:",
+            "Active Investment Found:",
             active_investment.id
         )
 
@@ -846,14 +1043,25 @@ def check_and_assign_rank(
             user
         )
 
+        # --------------------------------------------------
+        # NO QUALIFIED RANK
+        # --------------------------------------------------
+
         if not rank:
 
+            print("")
             print(
-                "No qualified rank."
+                "NO QUALIFIED RANK"
+            )
+
+            print(
+                "User:",
+                user.user_id
             )
 
             return None
 
+        print("")
         print(
             "Qualified Rank:",
             rank.rank_name
@@ -869,10 +1077,14 @@ def check_and_assign_rank(
             rank
         )
 
+        # --------------------------------------------------
+        # RANK ALREADY EXISTS
+        # --------------------------------------------------
+
         if not history:
 
             print(
-                "Rank was not assigned."
+                "Rank was not newly assigned."
             )
 
             return None
@@ -893,14 +1105,20 @@ def check_and_assign_rank(
         db.commit()
 
         # ==================================================
-        # 6. REFRESH
+        # 6. REFRESH HISTORY
         # ==================================================
 
         db.refresh(history)
 
+        # ==================================================
+        # FINAL LOG
+        # ==================================================
+
         print("")
         print("==========================================")
-        print("RANK PROCESS COMPLETED SUCCESSFULLY")
+        print(
+            "RANK PROCESS COMPLETED SUCCESSFULLY"
+        )
         print("==========================================")
 
         print(
@@ -911,6 +1129,11 @@ def check_and_assign_rank(
         print(
             "Rank:",
             rank.rank_name
+        )
+
+        print(
+            "Rank ID:",
+            rank.id
         )
 
         print(
@@ -935,9 +1158,12 @@ def check_and_assign_rank(
 
         db.rollback()
 
+        print("")
+        print("--------------------------------")
         print(
-            "Rank process failed:",
+            "RANK PROCESS FAILED:",
             str(e)
         )
+        print("--------------------------------")
 
         raise
