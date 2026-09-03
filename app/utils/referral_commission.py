@@ -694,11 +694,11 @@ def create_referral_commission(
     # ============================================================
     # CALCULATE GROSS COMMISSION
     #
-    # Sponsor Investment Amount × Percentage
+    #  Investmenter Amount × Percentage
     # ============================================================
 
     gross_commission = (
-        sponsor_investment_amount
+        investment.amount
         * commission_percentage
     ) / 100
 
