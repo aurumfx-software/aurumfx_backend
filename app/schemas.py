@@ -118,6 +118,7 @@ class InvestmentResponse(BaseModel):
     return_date: date
     investment_status: str
     approval_status: str
+    reject_reason: str | None = None
     investment_date: date
     payment_proof: str | None = None
     class Config:

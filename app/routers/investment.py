@@ -401,6 +401,7 @@ def my_investments(
                 return_date=inv.return_date,
                 investment_status=inv.investment_status,
                 approval_status=inv.approval_status,
+                reject_reason=inv.reject_reason,
                 investment_date=inv.investment_date,
                 payment_proof=get_presigned_url(inv.payment_proof),
             )
