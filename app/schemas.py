@@ -14,6 +14,7 @@ class RegisterUser(BaseModel):
     enroller_id: str | None = None
 
     date_of_birth: date
+    registration_date: date
     country: str
     state: str | None = None
     district: str | None = None

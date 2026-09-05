@@ -58,6 +58,25 @@ def check_enroller(
 # ----------------------------
 # Register
 # ----------------------------
+from datetime import datetime, time
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import (
+    User,
+    UserKYC,
+    UserBankDetails,
+)
+
+# Your existing imports
+# from app.schemas import RegisterUser
+# from app.utils import generate_user_id
+# from app.auth import pwd_context
+# from app.email_service import send_registration_email
+
+
 @router.post("/register")
 def register(
     user: RegisterUser,
@@ -75,12 +94,14 @@ def register(
         )
 
     # ==========================================================
-    # 2. CHECK AADHAAR IN KYC TABLE
+    # 2. CHECK AADHAAR
     # ==========================================================
 
     existing_aadhar = (
         db.query(UserKYC)
-        .filter(UserKYC.aadhar_no == user.aadhar_no)
+        .filter(
+            UserKYC.aadhar_no == user.aadhar_no
+        )
         .first()
     )
 
@@ -91,14 +112,16 @@ def register(
         )
 
     # ==========================================================
-    # 3. CHECK PAN IN KYC TABLE
+    # 3. CHECK PAN
     # ==========================================================
 
     # if user.pan:
 
     #     existing_pan = (
     #         db.query(UserKYC)
-    #         .filter(UserKYC.pan_no == user.pan)
+    #         .filter(
+    #             UserKYC.pan_no == user.pan
+    #         )
     #         .first()
     #     )
 
@@ -129,18 +152,46 @@ def register(
             )
 
     # ==========================================================
-    # 5. GENERATE USER ID
+    # 5. CONVERT REGISTRATION DATE
+    # ==========================================================
+    #
+    # Frontend:
+    #
+    # registration_date = "2023-08-15"
+    #
+    # Database:
+    #
+    # 2023-08-15 00:00:00
+    #
+    # ==========================================================
+
+    registration_datetime = datetime.combine(
+        user.registration_date,
+        time.min
+    )
+
+    print(
+        "Registration Date:",
+        registration_datetime
+    )
+
+    # ==========================================================
+    # 6. GENERATE USER ID
     # ==========================================================
 
     user_id = generate_user_id(db)
 
-    print("Generated User ID:", user_id)
+    print(
+        "Generated User ID:",
+        user_id
+    )
 
     # ==========================================================
-    # 6. CREATE USER
+    # 7. CREATE USER
     # ==========================================================
 
     db_user = User(
+
         user_id=user_id,
 
         email=user.email,
@@ -163,7 +214,6 @@ def register(
 
         district=user.district,
 
-
         city=user.city,
 
         zip_code=user.zip_code,
@@ -176,41 +226,61 @@ def register(
 
         gender=user.gender,
 
-        role="USER"
+        role="USER",
+
+        # ======================================================
+        # OLD SITE DATE
+        # ======================================================
+
+        created_at=registration_datetime,
+
+        updated_at=registration_datetime,
     )
 
     db.add(db_user)
 
-    # Flush so db_user.id is generated
-    # before creating KYC and bank records.
+    # ==========================================================
+    # 8. FLUSH USER
+    # ==========================================================
+
     db.flush()
 
     # ==========================================================
-    # 7. CREATE KYC
+    # 9. CREATE KYC
     # ==========================================================
 
     db_kyc = UserKYC(
+
         user_id=db_user.id,
 
         aadhar_no=user.aadhar_no,
 
         pan_no=user.pan,
 
-        status="PENDING"
+        status="PENDING",
+
+        # ======================================================
+        # OLD SITE DATE
+        # ======================================================
+
+        uploaded_at=registration_datetime,
+
+        updated_at=registration_datetime,
     )
 
     db.add(db_kyc)
 
     # ==========================================================
-    # 8. CREATE BANK + NOMINEE DETAILS
+    # 10. CREATE BANK + NOMINEE DETAILS
     # ==========================================================
 
     db_bank_details = UserBankDetails(
+
         user_id=db_user.id,
 
-        # -------------------------
-        # Bank
-        # -------------------------
+        # ------------------------------------------------------
+        # BANK
+        # ------------------------------------------------------
 
         bank_account=user.bank_account,
 
@@ -220,9 +290,11 @@ def register(
 
         bank_status="PENDING",
 
-        # -------------------------
-        # Nominee
-        # -------------------------
+        bank_rejection_reason=None,
+
+        # ------------------------------------------------------
+        # NOMINEE
+        # ------------------------------------------------------
 
         nominee_name=user.nominee_name,
 
@@ -240,13 +312,29 @@ def register(
 
         nominee_aadhar_front=None,
 
-        nominee_aadhar_back=None
+        nominee_aadhar_back=None,
+
+        # ------------------------------------------------------
+        # NOMINEE STATUS
+        # ------------------------------------------------------
+
+        nominee_status="PENDING",
+
+        nominee_rejection_reason=None,
+
+        # ======================================================
+        # OLD SITE DATE
+        # ======================================================
+
+        created_at=registration_datetime,
+
+        updated_at=registration_datetime,
     )
 
     db.add(db_bank_details)
 
     # ==========================================================
-    # 9. COMMIT EVERYTHING
+    # 11. COMMIT EVERYTHING
     # ==========================================================
 
     try:
@@ -264,9 +352,8 @@ def register(
             detail=f"Registration failed: {str(e)}"
         )
 
-
     # ==========================================================
-    # 10. SEND REGISTRATION EMAIL
+    # 12. SEND REGISTRATION EMAIL
     # ==========================================================
 
     try:
@@ -277,40 +364,46 @@ def register(
             else ""
         )
 
-        send_registration_email(
+        # send_registration_email(
 
-            to_email=db_user.email,
+        #     to_email=db_user.email,
 
-            user_id=db_user.user_id,
+        #     user_id=db_user.user_id,
 
-            first_name=db_user.first_name,
+        #     first_name=db_user.first_name,
 
-            last_name=db_user.last_name,
+        #     last_name=db_user.last_name,
 
-            joining_date=joining_date,
+        #     joining_date=joining_date,
 
-            enroller_id=db_user.enroller_id,
+        #     enroller_id=db_user.enroller_id,
 
-            password=user.password,
+        #     password=user.password,
 
-            plan_type="14%"
-        )
+        #     plan_type="14%"
+        # )
 
     except Exception as e:
 
         print(
             f"User registered successfully, "
-            f"but registration email failed: {str(e)}"
+            # f"but registration email failed: {str(e)}"
         )
 
-
     # ==========================================================
-    # 11. RESPONSE
+    # 13. RESPONSE
     # ==========================================================
 
     return {
         "message": "Registration Successful",
-        "user_id": db_user.user_id
+
+        "user_id": db_user.user_id,
+
+        "registration_date": (
+            db_user.created_at.strftime("%Y-%m-%d")
+            if db_user.created_at
+            else None
+        )
     }
 # ----------------------------
 # Login
