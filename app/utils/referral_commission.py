@@ -1,18 +1,14 @@
-from sqlalchemy import func
+# from sqlalchemy import func
 
-from app.models import (
-    Wallet,
-    WalletTransaction,
-    ReferralCommission,
-    ReferralCommissionSetting,
-    User,
-    Investment,
-)
+# from app.models import (
+#     Wallet,
+#     WalletTransaction,
+#     ReferralCommission,
+#     ReferralCommissionSetting,
+#     User,
+#     Investment,
+# )
 
-
-# ==========================================================
-# CREATE REFERRAL COMMISSION
-# ==========================================================
 
 # def create_referral_commission(
 #     db,
@@ -20,93 +16,48 @@ from app.models import (
 #     plan,
 # ):
 #     """
-#     Create referral commission when an investment is approved.
+#     Create referral commission for the sponsor.
 
-#     Flow:
-
-#         Investment Approved
-#                 |
-#                 v
-#         Find Investor
-#                 |
-#                 v
-#         Find Enroller
-#                 |
-#                 v
-#         Check Enroller Active Investment
-#                 |
-#                 v
-#         Find Referral Commission Setting
-#                 |
-#                 v
-#         Calculate Gross Commission
-#                 |
-#                 v
-#         Apply Daily Commission Limit
-#                 |
-#                 v
-#         Calculate Washout
-#                 |
-#                 v
-#         commission_amount = gross - washout
-#                 |
-#                 v
-#         Save ReferralCommission as PENDING
-#                 |
-#                 v
-#         Add commission_amount to Wallet.pending_balance
-#                 |
-#                 v
-#         Create WalletTransaction as PENDING
-
-#     IMPORTANT:
-
-#     Admin fee is NOT deducted here.
-
-#     Admin fee will be deducted later during admin payout
-#     from the user's total pending income:
-
-#         Referral
-#         + Level
-#         + Rank
+#     Rules:
+#     1. Sponsor is found from investment.enroller_id -> User.user_id
+#     2. Sponsor must have ACTIVE + APPROVED investment
+#     3. Referral setting plan must match INVESTOR's investment plan
+#     4. Referral setting amount range is checked against SPONSOR's investment amount
+#     5. Commission = SPONSOR investment amount × matched percentage
 #     """
 
-#     # ======================================================
-#     # INVESTOR
-#     # ======================================================
+#     # ============================================================
+#     # FIND INVESTOR
+#     # ============================================================
 
 #     investor = (
 #         db.query(User)
-#         .filter(
-#             User.id == investment.user_id
-#         )
+#         .filter(User.id == investment.user_id)
 #         .first()
 #     )
 
 #     if not investor:
-
-#         print(
-#             "Referral commission skipped: "
-#             "Investor not found"
-#         )
-
 #         return None
 
 #     # ============================================================
-#     # FIND SPONSOR
+#     # FIND SPONSOR / ENROLLER
+#     # investment.enroller_id = sponsor's public user_id
 #     # ============================================================
+
+#     if not investment.enroller_id:
+#         return None
 
 #     enroller = (
 #         db.query(User)
 #         .filter(
-#             User.user_id == investment.enroller_id
+#             User.user_id == investment.enroller_id,
+#             User.status == "ACTIVE",
 #         )
 #         .first()
 #     )
 
 #     if not enroller:
-#         return
-
+#         return None
 
 #     # ============================================================
 #     # FIND SPONSOR ACTIVE + APPROVED INVESTMENT
@@ -126,40 +77,46 @@ from app.models import (
 #     )
 
 #     if not sponsor_investment:
-#         return
-
+#         return None
 
 #     # ============================================================
-#     # SPONSOR INVESTMENT DETAILS
+#     # SPONSOR INVESTMENT AMOUNT
 #     # ============================================================
-
-#     sponsor_plan_id = sponsor_investment.investment_plan_id
 
 #     sponsor_investment_amount = float(
 #         sponsor_investment.amount or 0
 #     )
 
+#     if sponsor_investment_amount <= 0:
+#         return None
 
 #     # ============================================================
 #     # FIND REFERRAL COMMISSION SETTING
 #     #
-#     # Match:
-#     #   1. Sponsor's investment plan
-#     #   2. Sponsor's investment amount
+#     # PLAN:
+#     #     Investor's investment plan
+#     #
+#     # AMOUNT:
+#     #     Sponsor's investment amount
 #     # ============================================================
 
 #     referral_setting = (
 #         db.query(ReferralCommissionSetting)
 #         .filter(
+#             # IMPORTANT:
+#             # Setting plan = INVESTOR plan
 #             ReferralCommissionSetting.investment_plan_id
-#             == sponsor_plan_id,
+#             == investment.investment_plan_id,
 
+#             # Sponsor amount must be >= minimum
 #             ReferralCommissionSetting.minimum_amount
 #             <= sponsor_investment_amount,
 
+#             # Setting must be active
 #             ReferralCommissionSetting.status == True,
 #         )
 #         .filter(
+#             # Maximum can be NULL = unlimited
 #             (
 #                 ReferralCommissionSetting.maximum_amount.is_(None)
 #             )
@@ -175,57 +132,43 @@ from app.models import (
 #         .first()
 #     )
 
-
-#     # ============================================================
-#     # NO MATCHING REFERRAL SETTING
-#     # ============================================================
-
 #     if not referral_setting:
-#         return
+#         return None
 
 #     # ============================================================
-#     # INVESTOR INVESTMENT AMOUNT
-#     # This is the amount on which commission is calculated
-#     # ============================================================
-
-#     investment_amount = float(
-#         investment.amount or 0
-#     )
-#     # ============================================================
-#     # CALCULATE COMMISSION
-#     #
-#     # IMPORTANT:
-#     # Percentage is selected using SPONSOR investment.
-#     # Commission amount is calculated using INVESTOR investment.
+#     # COMMISSION PERCENTAGE
 #     # ============================================================
 
 #     commission_percentage = float(
 #         referral_setting.commission_percentage or 0
 #     )
 
-#     investor_investment_amount = float(
-#         investment.amount or 0
-#     )
+#     if commission_percentage <= 0:
+#         return None
+
+#     # ============================================================
+#     # CALCULATE GROSS COMMISSION
+#     #
+#     #  Investmenter Amount × Percentage
+#     # ============================================================
 
 #     gross_commission = (
-#         investor_investment_amount
+#         investment.amount
 #         * commission_percentage
 #     ) / 100
 
-#     # ======================================================
-#     # DAILY COMMISSION LIMIT
-#     # ======================================================
+#     if gross_commission <= 0:
+#         return None
+
+#     # ============================================================
+#     # DAILY COMMISSION LIMIT / WASHOUT
+#     # ============================================================
 
 #     washout_amount = 0.0
 
 #     daily_limit = float(
-#         referral_setting.daily_commission_limit
-#         or 0
+#         referral_setting.daily_commission_limit or 0
 #     )
-
-#     # ======================================================
-#     # CHECK TODAY'S COMMISSION
-#     # ======================================================
 
 #     if daily_limit > 0:
 
@@ -239,47 +182,27 @@ from app.models import (
 #                 )
 #             )
 #             .filter(
-#                 ReferralCommission.enroller_id
-#                 == enroller.id,
+#                 ReferralCommission.enroller_id == enroller.id,
 
-#                 ReferralCommission.status
-#                 == "PENDING",
+#                 ReferralCommission.status == "PENDING",
 
 #                 func.date(
 #                     ReferralCommission.created_at
-#                 )
-#                 == func.current_date(),
+#                 ) == func.current_date(),
 #             )
 #             .scalar()
 #             or 0
 #         )
 
-#         today_commission = float(
-#             today_commission
-#         )
-
-#         # ==================================================
-#         # REMAINING DAILY LIMIT
-#         # ==================================================
+#         today_commission = float(today_commission)
 
 #         remaining_limit = (
-#             daily_limit
-#             - today_commission
+#             daily_limit - today_commission
 #         )
-
-#         # ==================================================
-#         # DAILY LIMIT ALREADY REACHED
-#         # ==================================================
 
 #         if remaining_limit <= 0:
 
-#             washout_amount = (
-#                 gross_commission
-#             )
-
-#         # ==================================================
-#         # COMMISSION EXCEEDS REMAINING LIMIT
-#         # ==================================================
+#             washout_amount = gross_commission
 
 #         elif gross_commission > remaining_limit:
 
@@ -290,160 +213,97 @@ from app.models import (
 
 #     else:
 
-#         # No daily limit
 #         today_commission = 0.0
 #         remaining_limit = 0.0
 
-#     # ======================================================
-#     # FINAL COMMISSION AFTER WASHOUT
-#     # ======================================================
+#     # ============================================================
+#     # FINAL COMMISSION
+#     # ============================================================
 
 #     commission_amount = (
 #         gross_commission
 #         - washout_amount
 #     )
 
-#     # ======================================================
-#     # PREVENT NEGATIVE VALUE
-#     # ======================================================
-
 #     if commission_amount < 0:
-
 #         commission_amount = 0.0
 
-#     # ======================================================
-#     # WALLET
-#     # ======================================================
+#     # ============================================================
+#     # GET / CREATE SPONSOR WALLET
+#     # ============================================================
 
 #     wallet = (
 #         db.query(Wallet)
 #         .filter(
-#             Wallet.user_id
-#             == enroller.id
+#             Wallet.user_id == enroller.id
 #         )
 #         .first()
 #     )
-
-#     # ======================================================
-#     # CREATE WALLET IF NOT EXISTS
-#     # ======================================================
 
 #     if not wallet:
 
 #         wallet = Wallet(
 #             user_id=enroller.id,
-
-#             # Paid / available balance
 #             balance=0,
-
-#             # Pending income
 #             pending_balance=0,
-
-#             # Admin fee accumulated during payout
 #             admin_fee=0,
 #         )
 
 #         db.add(wallet)
-
 #         db.flush()
 
-#     # ======================================================
-#     # PENDING WALLET BALANCE
-#     # ======================================================
+#     # ============================================================
+#     # UPDATE PENDING WALLET
+#     # ============================================================
 
 #     pending_before = float(
 #         wallet.pending_balance or 0
 #     )
-
-#     # ======================================================
-#     # ADD FINAL COMMISSION TO PENDING BALANCE
-#     #
-#     # IMPORTANT:
-#     #
-#     # commission_amount already excludes washout.
-#     #
-#     # Example:
-#     #
-#     # Gross       = 10,000
-#     # Washout     = 3,000
-#     # Commission  = 7,000
-#     #
-#     # Wallet gets only 7,000.
-#     # ======================================================
 
 #     wallet.pending_balance = (
 #         pending_before
 #         + commission_amount
 #     )
 
-#     # ======================================================
-#     # REFERRAL COMMISSION HISTORY
-#     # ======================================================
+#     # ============================================================
+#     # CREATE REFERRAL COMMISSION HISTORY
+#     # ============================================================
 
 #     commission_history = ReferralCommission(
-
 #         investment_id=investment.id,
 
 #         investor_id=investor.id,
 
 #         enroller_id=enroller.id,
 
-#         investment_amount=investment.amount,
+#         # Store SPONSOR investment amount as commission base
+#         investment_amount=sponsor_investment_amount,
 
 #         commission_percentage=commission_percentage,
 
-#         # ==================================================
-#         # IMPORTANT
-#         #
-#         # commission_amount is FINAL amount AFTER WASHOUT
-#         # ==================================================
-
 #         commission_amount=commission_amount,
-
-#         # ==================================================
-#         # Nothing paid yet
-#         # ==================================================
 
 #         paid_amount=0,
 
-#         # ==================================================
-#         # Amount removed because of daily limit
-#         # ==================================================
-
 #         washout_amount=washout_amount,
-
-#         # ==================================================
-#         # Income is pending
-#         # ==================================================
 
 #         status="PENDING",
 #     )
 
-#     db.add(
-#         commission_history
-#     )
+#     db.add(commission_history)
 
-#     # ======================================================
-#     # WALLET TRANSACTION
-#     # ======================================================
+#     # ============================================================
+#     # CREATE WALLET TRANSACTION
+#     # ============================================================
 
 #     wallet_transaction = WalletTransaction(
-
 #         wallet_id=wallet.id,
 
 #         investment_id=investment.id,
 
-#         # ==================================================
-#         # Only final commission is added
-#         # ==================================================
-
 #         amount=commission_amount,
 
 #         transaction_type="REFERRAL",
-
-#         # ==================================================
-#         # Income generated but not paid yet
-#         # ==================================================
 
 #         status="PENDING",
 
@@ -453,107 +313,79 @@ from app.models import (
 #         ),
 #     )
 
-#     db.add(
-#         wallet_transaction
-#     )
-
-#     # ======================================================
-#     # FLUSH
-#     # ======================================================
+#     db.add(wallet_transaction)
 
 #     db.flush()
 
-#     # ======================================================
+#     # ============================================================
 #     # LOG
-#     # ======================================================
+#     # ============================================================
 
 #     print(
-#         "--------------------------------------"
+#         "============================================"
 #     )
-
+#     print("REFERRAL COMMISSION")
 #     print(
-#         "REFERRAL COMMISSION"
+#         f"Investor       : {investor.user_id}"
 #     )
-
 #     print(
-#         "--------------------------------------"
+#         f"Sponsor        : {enroller.user_id}"
 #     )
-
 #     print(
-#         "Investor:",
-#         investor.user_id
+#         f"Investor Plan  : {investment.investment_plan_id}"
 #     )
-
 #     print(
-#         "Enroller:",
-#         enroller.user_id
+#         f"Sponsor Invest : {sponsor_investment_amount}"
 #     )
-
 #     print(
-#         "Investment:",
-#         investment_amount
+#         f"Percentage     : {commission_percentage}%"
 #     )
-
 #     print(
-#         "Referral %:",
-#         commission_percentage
+#         f"Gross          : {gross_commission}"
 #     )
-
 #     print(
-#         "Gross Commission:",
-#         gross_commission
+#         f"Daily Limit    : {daily_limit}"
 #     )
-
 #     print(
-#         "Daily Limit:",
-#         daily_limit
+#         f"Today Income   : {today_commission}"
 #     )
-
 #     print(
-#         "Today's Commission:",
-#         today_commission
+#         f"Remaining      : {remaining_limit}"
 #     )
-
 #     print(
-#         "Remaining Daily Limit:",
-#         remaining_limit
+#         f"Washout        : {washout_amount}"
 #     )
-
 #     print(
-#         "Washout:",
-#         washout_amount
+#         f"Final Commission: {commission_amount}"
 #     )
-
 #     print(
-#         "Final Commission:",
-#         commission_amount
+#         f"Wallet Pending Before: {pending_before}"
 #     )
-
 #     print(
-#         "Commission Status:",
-#         "PENDING"
+#         f"Wallet Pending After : {wallet.pending_balance}"
 #     )
-
 #     print(
-#         "Wallet Pending Before:",
-#         pending_before
-#     )
-
-#     print(
-#         "Wallet Pending After:",
-#         wallet.pending_balance
-#     )
-
-#     print(
-#         "Admin Fee:",
-#         "NOT DEDUCTED"
-#     )
-
-#     print(
-#         "--------------------------------------"
+#         "============================================"
 #     )
 
 #     return commission_history
+
+
+from sqlalchemy import func
+
+from app.models import (
+    Wallet,
+    WalletTransaction,
+    ReferralCommission,
+    ReferralCommissionSetting,
+    User,
+    Investment,
+)
+
+
+# ==========================================================
+# CREATE REFERRAL COMMISSION
+# ==========================================================
 
 def create_referral_commission(
     db,
@@ -564,12 +396,47 @@ def create_referral_commission(
     Create referral commission for the sponsor.
 
     Rules:
+
     1. Sponsor is found from investment.enroller_id -> User.user_id
     2. Sponsor must have ACTIVE + APPROVED investment
     3. Referral setting plan must match INVESTOR's investment plan
-    4. Referral setting amount range is checked against SPONSOR's investment amount
-    5. Commission = SPONSOR investment amount × matched percentage
+    4. Referral setting amount range is checked against
+       SPONSOR's investment amount
+    5. Commission percentage is selected based on SPONSOR investment
+    6. Commission amount is calculated from INVESTOR investment
+    7. Daily limit is applied using approval date
+    8. All generated records use investment.approval_status_updated_at
+    9. Admin fee is NOT deducted here
+    10. This function does NOT commit the transaction
     """
+
+    # ============================================================
+    # CHECK INVESTMENT
+    # ============================================================
+
+    if not investment:
+        print("Referral commission skipped: Investment not found")
+        return None
+
+    # ============================================================
+    # APPROVAL TIMESTAMP
+    #
+    # This is the single timestamp used for:
+    #
+    # ReferralCommission.created_at
+    # Wallet.created_at
+    # Wallet.updated_at
+    # WalletTransaction.created_at
+    # ============================================================
+
+    approval_timestamp = investment.approval_status_updated_at
+
+    if not approval_timestamp:
+        print(
+            "Referral commission skipped: "
+            "approval_status_updated_at is NULL"
+        )
+        return None
 
     # ============================================================
     # FIND INVESTOR
@@ -577,19 +444,30 @@ def create_referral_commission(
 
     investor = (
         db.query(User)
-        .filter(User.id == investment.user_id)
+        .filter(
+            User.id == investment.user_id
+        )
         .first()
     )
 
     if not investor:
+        print(
+            "Referral commission skipped: "
+            "Investor not found"
+        )
         return None
 
     # ============================================================
     # FIND SPONSOR / ENROLLER
-    # investment.enroller_id = sponsor's public user_id
+    #
+    # investment.enroller_id contains sponsor's public user_id
     # ============================================================
 
     if not investment.enroller_id:
+        print(
+            "Referral commission skipped: "
+            "Enroller not found in investment"
+        )
         return None
 
     enroller = (
@@ -602,6 +480,10 @@ def create_referral_commission(
     )
 
     if not enroller:
+        print(
+            "Referral commission skipped: "
+            "Active sponsor not found"
+        )
         return None
 
     # ============================================================
@@ -622,10 +504,16 @@ def create_referral_commission(
     )
 
     if not sponsor_investment:
+        print(
+            "Referral commission skipped: "
+            "Sponsor has no ACTIVE + APPROVED investment"
+        )
         return None
 
     # ============================================================
     # SPONSOR INVESTMENT AMOUNT
+    #
+    # Used to select referral percentage
     # ============================================================
 
     sponsor_investment_amount = float(
@@ -633,6 +521,10 @@ def create_referral_commission(
     )
 
     if sponsor_investment_amount <= 0:
+        print(
+            "Referral commission skipped: "
+            "Sponsor investment amount is zero"
+        )
         return None
 
     # ============================================================
@@ -648,20 +540,15 @@ def create_referral_commission(
     referral_setting = (
         db.query(ReferralCommissionSetting)
         .filter(
-            # IMPORTANT:
-            # Setting plan = INVESTOR plan
             ReferralCommissionSetting.investment_plan_id
             == investment.investment_plan_id,
 
-            # Sponsor amount must be >= minimum
             ReferralCommissionSetting.minimum_amount
             <= sponsor_investment_amount,
 
-            # Setting must be active
             ReferralCommissionSetting.status == True,
         )
         .filter(
-            # Maximum can be NULL = unlimited
             (
                 ReferralCommissionSetting.maximum_amount.is_(None)
             )
@@ -678,6 +565,10 @@ def create_referral_commission(
     )
 
     if not referral_setting:
+        print(
+            "Referral commission skipped: "
+            "No matching referral setting"
+        )
         return None
 
     # ============================================================
@@ -689,16 +580,37 @@ def create_referral_commission(
     )
 
     if commission_percentage <= 0:
+        print(
+            "Referral commission skipped: "
+            "Commission percentage is zero"
+        )
+        return None
+
+    # ============================================================
+    # INVESTOR INVESTMENT AMOUNT
+    #
+    # This is the amount used to calculate commission.
+    # ============================================================
+
+    investor_investment_amount = float(
+        investment.amount or 0
+    )
+
+    if investor_investment_amount <= 0:
+        print(
+            "Referral commission skipped: "
+            "Investor investment amount is zero"
+        )
         return None
 
     # ============================================================
     # CALCULATE GROSS COMMISSION
     #
-    #  Investmenter Amount × Percentage
+    # Investor Investment × Referral Percentage
     # ============================================================
 
     gross_commission = (
-        investment.amount
+        investor_investment_amount
         * commission_percentage
     ) / 100
 
@@ -717,6 +629,10 @@ def create_referral_commission(
 
     if daily_limit > 0:
 
+        # ========================================================
+        # CHECK COMMISSION FOR APPROVAL DATE
+        # ========================================================
+
         today_commission = (
             db.query(
                 func.coalesce(
@@ -733,21 +649,36 @@ def create_referral_commission(
 
                 func.date(
                     ReferralCommission.created_at
-                ) == func.current_date(),
+                ) == approval_timestamp.date(),
             )
             .scalar()
             or 0
         )
 
-        today_commission = float(today_commission)
+        today_commission = float(
+            today_commission
+        )
+
+        # ========================================================
+        # REMAINING DAILY LIMIT
+        # ========================================================
 
         remaining_limit = (
-            daily_limit - today_commission
+            daily_limit
+            - today_commission
         )
+
+        # ========================================================
+        # LIMIT ALREADY REACHED
+        # ========================================================
 
         if remaining_limit <= 0:
 
             washout_amount = gross_commission
+
+        # ========================================================
+        # COMMISSION EXCEEDS LIMIT
+        # ========================================================
 
         elif gross_commission > remaining_limit:
 
@@ -762,7 +693,7 @@ def create_referral_commission(
         remaining_limit = 0.0
 
     # ============================================================
-    # FINAL COMMISSION
+    # FINAL COMMISSION AFTER WASHOUT
     # ============================================================
 
     commission_amount = (
@@ -785,16 +716,30 @@ def create_referral_commission(
         .first()
     )
 
+    # ============================================================
+    # CREATE WALLET IF NOT EXISTS
+    # ============================================================
+
     if not wallet:
 
         wallet = Wallet(
             user_id=enroller.id,
+
             balance=0,
+
             pending_balance=0,
+
             admin_fee=0,
+
+            # IMPORTANT:
+            # Use investment approval timestamp
+            created_at=approval_timestamp,
+
+            updated_at=approval_timestamp,
         )
 
         db.add(wallet)
+
         db.flush()
 
     # ============================================================
@@ -810,19 +755,28 @@ def create_referral_commission(
         + commission_amount
     )
 
+    # IMPORTANT:
+    # Do NOT allow SQLAlchemy onupdate=datetime.utcnow
+    # to replace our approval timestamp.
+    wallet.updated_at = approval_timestamp
+
+    db.flush()
+
     # ============================================================
     # CREATE REFERRAL COMMISSION HISTORY
     # ============================================================
 
     commission_history = ReferralCommission(
+
         investment_id=investment.id,
 
         investor_id=investor.id,
 
         enroller_id=enroller.id,
 
-        # Store SPONSOR investment amount as commission base
-        investment_amount=sponsor_investment_amount,
+        # Investor investment is the actual
+        # commission calculation base.
+        investment_amount=investor_investment_amount,
 
         commission_percentage=commission_percentage,
 
@@ -833,6 +787,10 @@ def create_referral_commission(
         washout_amount=washout_amount,
 
         status="PENDING",
+
+        # IMPORTANT:
+        # Same timestamp as investment approval
+        created_at=approval_timestamp,
     )
 
     db.add(commission_history)
@@ -842,6 +800,7 @@ def create_referral_commission(
     # ============================================================
 
     wallet_transaction = WalletTransaction(
+
         wallet_id=wallet.id,
 
         investment_id=investment.id,
@@ -856,9 +815,20 @@ def create_referral_commission(
             f"Referral Commission from "
             f"{investor.user_id}"
         ),
+
+        # IMPORTANT:
+        # Same timestamp as investment approval
+        created_at=approval_timestamp,
     )
 
     db.add(wallet_transaction)
+
+    # ============================================================
+    # FLUSH
+    #
+    # No commit here.
+    # Approval API should commit everything together.
+    # ============================================================
 
     db.flush()
 
@@ -866,51 +836,81 @@ def create_referral_commission(
     # LOG
     # ============================================================
 
-    print(
-        "============================================"
-    )
+    print("============================================")
     print("REFERRAL COMMISSION")
+    print(f"Investor       : {investor.user_id}")
+    print(f"Sponsor        : {enroller.user_id}")
     print(
-        f"Investor       : {investor.user_id}"
+        f"Investor Plan  : "
+        f"{investment.investment_plan_id}"
     )
     print(
-        f"Sponsor        : {enroller.user_id}"
+        f"Sponsor Invest : "
+        f"{sponsor_investment_amount}"
     )
     print(
-        f"Investor Plan  : {investment.investment_plan_id}"
+        f"Investor Invest: "
+        f"{investor_investment_amount}"
     )
     print(
-        f"Sponsor Invest : {sponsor_investment_amount}"
+        f"Percentage     : "
+        f"{commission_percentage}%"
     )
     print(
-        f"Percentage     : {commission_percentage}%"
+        f"Gross          : "
+        f"{gross_commission}"
     )
     print(
-        f"Gross          : {gross_commission}"
+        f"Daily Limit    : "
+        f"{daily_limit}"
     )
     print(
-        f"Daily Limit    : {daily_limit}"
+        f"Approval Date  : "
+        f"{approval_timestamp}"
     )
     print(
-        f"Today Income   : {today_commission}"
+        f"Today Income   : "
+        f"{today_commission}"
     )
     print(
-        f"Remaining      : {remaining_limit}"
+        f"Remaining      : "
+        f"{remaining_limit}"
     )
     print(
-        f"Washout        : {washout_amount}"
+        f"Washout        : "
+        f"{washout_amount}"
     )
     print(
-        f"Final Commission: {commission_amount}"
+        f"Final Commission: "
+        f"{commission_amount}"
     )
     print(
-        f"Wallet Pending Before: {pending_before}"
+        f"History Created: "
+        f"{commission_history.created_at}"
     )
     print(
-        f"Wallet Pending After : {wallet.pending_balance}"
+        f"Wallet Created : "
+        f"{wallet.created_at}"
     )
     print(
-        "============================================"
+        f"Wallet Updated : "
+        f"{wallet.updated_at}"
     )
+    print(
+        f"Transaction Created: "
+        f"{wallet_transaction.created_at}"
+    )
+    print(
+        f"Wallet Pending Before: "
+        f"{pending_before}"
+    )
+    print(
+        f"Wallet Pending After : "
+        f"{wallet.pending_balance}"
+    )
+    print("Commission Status: PENDING")
+    print("Admin Fee: NOT DEDUCTED")
+    print("============================================")
 
     return commission_history
+

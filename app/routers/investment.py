@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile,File,Form
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 from app.database import get_db
 from app.models import User, Investment, InvestmentPlan, ReturnType, LotSetting
 from app.schemas import (
@@ -25,16 +26,21 @@ async def create_investment(
     amount: float = Form(...),
     return_type_id: int = Form(...),
     bank_transaction_id: str = Form(...),
+
+    # --------------------------------------------------
+    # User provides both dates
+    # --------------------------------------------------
     investment_date: date = Form(...),
+    return_date: date = Form(...),
 
     payment_proof: UploadFile = File(...),
 
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # --------------------------------------------------
+    # ==================================================
     # Logged in User
-    # --------------------------------------------------
+    # ==================================================
 
     user = (
         db.query(User)
@@ -47,9 +53,20 @@ async def create_investment(
             status_code=404,
             detail="User not found"
         )
-    # --------------------------------------------------
+
+    # ==================================================
+    # Validate Dates
+    # ==================================================
+
+    if return_date < investment_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Return date cannot be before investment date."
+        )
+
+    # ==================================================
     # Check Bank Transaction ID
-    # --------------------------------------------------
+    # ==================================================
 
     bank_transaction_id = bank_transaction_id.strip()
 
@@ -72,9 +89,10 @@ async def create_investment(
             status_code=400,
             detail="This bank transaction ID has already been used."
         )
-    # --------------------------------------------------
+
+    # ==================================================
     # Investment Plan
-    # --------------------------------------------------
+    # ==================================================
 
     plan = (
         db.query(InvestmentPlan)
@@ -91,13 +109,15 @@ async def create_investment(
             detail="Investment Plan not found"
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # Lot Setting
-    # --------------------------------------------------
+    # ==================================================
 
     lot_setting = (
         db.query(LotSetting)
-        .filter(LotSetting.status == 1)
+        .filter(
+            LotSetting.status == 1
+        )
         .first()
     )
 
@@ -115,9 +135,9 @@ async def create_investment(
             detail="Invalid lot amount configuration"
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # Minimum Amount
-    # --------------------------------------------------
+    # ==================================================
 
     if amount < 5000:
         raise HTTPException(
@@ -125,9 +145,9 @@ async def create_investment(
             detail="Minimum investment amount is ₹5000."
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # Multiple of 5000
-    # --------------------------------------------------
+    # ==================================================
 
     if amount % 5000 != 0:
         raise HTTPException(
@@ -135,38 +155,35 @@ async def create_investment(
             detail="Investment amount must be a multiple of ₹5000."
         )
 
-    # --------------------------------------------------
-    # Lots
-    # --------------------------------------------------
+    # ==================================================
+    # Calculate Lots
+    # ==================================================
 
     lots = int(amount / lot_amount)
 
-    # --------------------------------------------------
+    if lots <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Investment amount is not enough for one lot."
+        )
+
+    # ==================================================
     # Monthly Return
-    # --------------------------------------------------
+    # ==================================================
 
     monthly_return_amount = (
-        amount * plan.return_percentage
+        amount * float(plan.return_percentage)
     ) / 100
 
-    # --------------------------------------------------
+    # ==================================================
     # Return Balance
-    # --------------------------------------------------
+    # ==================================================
 
     return_balance = plan.duration_months
 
-    # --------------------------------------------------
-    # Return Date
-    # --------------------------------------------------
-
-    return_date = calculate_return_date(
-        db,
-        investment_date
-    )
-
-    # --------------------------------------------------
+    # ==================================================
     # Return Type
-    # --------------------------------------------------
+    # ==================================================
 
     return_type = (
         db.query(ReturnType)
@@ -183,9 +200,9 @@ async def create_investment(
             detail="Return type not found"
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # Validate Payment Proof
-    # --------------------------------------------------
+    # ==================================================
 
     allowed_types = {
         "image/jpeg": ".jpg",
@@ -199,6 +216,10 @@ async def create_investment(
             detail="Payment proof must be JPG, PNG or PDF"
         )
 
+    # ==================================================
+    # Read Payment Proof
+    # ==================================================
+
     payment_proof_content = await payment_proof.read()
 
     max_size = 5 * 1024 * 1024
@@ -209,9 +230,9 @@ async def create_investment(
             detail="Payment proof must be less than 5 MB"
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # Upload Payment Proof
-    # --------------------------------------------------
+    # ==================================================
 
     payment_proof_key = upload_investment_payment_proof(
         file_content=payment_proof_content,
@@ -220,63 +241,90 @@ async def create_investment(
         user_id=user.user_id
     )
 
-    # --------------------------------------------------
-    # Investment ID
-    # --------------------------------------------------
+    # ==================================================
+    # Generate Investment ID
+    # ==================================================
 
     investment_id = generate_investment_id(db)
 
-    # --------------------------------------------------
-    # Save Investment
-    # --------------------------------------------------
-
+    # ==================================================
+    # Create Investment
+    # ==================================================
+    investment_datetime = datetime.combine(
+            investment_date,
+            time.min
+        )
+    
     db_investment = Investment(
-
         investment_id=investment_id,
 
+        # User
         user_id=user.id,
 
+        # Plan / Return Type
         return_type_id=return_type.id,
-
         investment_plan_id=plan.id,
 
+        # Investment
         amount=amount,
-
         lots=lots,
 
+        # Return
         monthly_return_percentage=plan.return_percentage,
-
         monthly_return_amount=monthly_return_amount,
 
         return_which=0,
-
         return_balance=return_balance,
 
+        # IMPORTANT:
+        # User provides return_date
         return_date=return_date,
 
+        # Payment
         bank_transaction_id=bank_transaction_id,
-
         payment_proof=payment_proof_key,
 
+        # Referral
         enroller_id=user.enroller_id,
 
+        # Status
         investment_status="PENDING",
-
         approval_status="PENDING",
 
-        investment_date=investment_date
+        # IMPORTANT:
+        # User provides investment_date
+        investment_date=investment_date,
+
+        # Same date as investment_date
+        created_at=investment_datetime,
+
+        # Same date as investment_date
+        updated_at=investment_datetime
     )
 
-    db.add(db_investment)
-    db.commit()
-    db.refresh(db_investment)
+    # ==================================================
+    # Save
+    # ==================================================
 
-    # --------------------------------------------------
+    db.add(db_investment)
+
+    try:
+        db.commit()
+        db.refresh(db_investment)
+
+    except Exception:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create investment."
+        )
+
+    # ==================================================
     # Response
-    # --------------------------------------------------
+    # ==================================================
 
     return InvestmentResponse(
-
         id=db_investment.id,
 
         investment_id=db_investment.investment_id,
@@ -291,9 +339,13 @@ async def create_investment(
 
         lots=db_investment.lots,
 
-        monthly_return_percentage=db_investment.monthly_return_percentage,
+        monthly_return_percentage=(
+            db_investment.monthly_return_percentage
+        ),
 
-        monthly_return_amount=db_investment.monthly_return_amount,
+        monthly_return_amount=(
+            db_investment.monthly_return_amount
+        ),
 
         return_which=db_investment.return_which,
 
@@ -307,8 +359,6 @@ async def create_investment(
 
         investment_date=db_investment.investment_date
     )
-
-
 # -----------------------------------
 # My Investments
 # -----------------------------------
