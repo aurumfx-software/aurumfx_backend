@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Form
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -1440,73 +1440,698 @@ def print_pending_payouts(
 # PAY USER
 # ============================================================
 
+# @router.post("/{user_id}/pay")
+# def pay_user(
+#     user_id: int,
+#     db: Session = Depends(get_db),
+#     admin: User = Depends(get_current_admin),
+# ):
+#     """
+#     Pay all pending income for a user.
+
+#     Flow:
+
+#         Referral
+#              +
+#         Level
+#              +
+#         Rank
+#              =
+#         Gross Income
+
+#         Gross Income
+#              -
+#         Admin Fee
+#              =
+#         Net Payable
+
+#     Wallet:
+
+#         pending_balance -= gross income
+
+#         balance += net payable
+
+#         admin_fee += admin fee
+
+#     PayoutHistory:
+
+#         A history record is created.
+#     """
+
+#     try:
+
+#         # ====================================================
+#         # GET USER
+#         # ====================================================
+
+#         user = (
+#             db.query(User)
+#             .options(
+#                 joinedload(
+#                     User.bank_details
+#                 )
+#             )
+#             .filter(
+#                 User.id == user_id
+#             )
+#             .first()
+#         )
+
+#         if not user:
+
+#             raise HTTPException(
+#                 status_code=404,
+#                 detail="User not found"
+#             )
+
+#         # ====================================================
+#         # LOCK WALLET
+#         # ====================================================
+
+#         wallet = get_user_wallet(
+#             db,
+#             user.id,
+#             create=True
+#         )
+
+#         # ====================================================
+#         # LOCK PENDING REFERRAL
+#         # ====================================================
+
+#         referral_records = (
+#             get_pending_referral(
+#                 db,
+#                 user.id
+#             )
+#         )
+
+#         referral_amount = sum(
+#             (
+#                 money(
+#                     record.commission_amount
+#                 )
+#                 for record in referral_records
+#             ),
+#             Decimal("0.00")
+#         )
+
+#         # ====================================================
+#         # LOCK PENDING LEVEL
+#         # ====================================================
+
+#         level_records = (
+#             get_pending_level(
+#                 db,
+#                 user.id
+#             )
+#         )
+
+#         level_amount = sum(
+#             (
+#                 money(
+#                     record.commission_amount
+#                 )
+#                 for record in level_records
+#             ),
+#             Decimal("0.00")
+#         )
+
+#         # ====================================================
+#         # LOCK PENDING RANK
+#         # ====================================================
+
+#         rank_records = (
+#             get_pending_rank(
+#                 db,
+#                 user.id
+#             )
+#         )
+
+#         rank_amount = sum(
+#             (
+#                 money(
+#                     record.reward_income
+#                 )
+#                 for record in rank_records
+#             ),
+#             Decimal("0.00")
+#         )
+
+#         # ====================================================
+#         # TOTAL GROSS INCOME
+#         # ====================================================
+
+#         total_income = money(
+#             referral_amount
+#             + level_amount
+#             + rank_amount
+#         )
+
+#         if total_income <= 0:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "No pending income available "
+#                     "for payout"
+#                 )
+#             )
+
+#         # ====================================================
+#         # CHECK WALLET PENDING BALANCE
+#         # ====================================================
+
+#         wallet_pending_before = money(
+#             wallet.pending_balance
+#         )
+
+#         if wallet_pending_before < total_income:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     f"Wallet pending balance "
+#                     f"({wallet_pending_before}) is less "
+#                     f"than calculated pending income "
+#                     f"({total_income})."
+#                 )
+#             )
+
+#         # ====================================================
+#         # GET LONGEST APPROVED INVESTMENT
+#         # ====================================================
+
+#         investment = get_longest_investment(
+#             db,
+#             user.id
+#         )
+
+#         if not investment:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "User has no approved investment"
+#                 )
+#             )
+
+#         plan = investment.investment_plan
+
+#         if not plan:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Investment plan not found"
+#             )
+
+#         # ====================================================
+#         # GET ADMIN FEE %
+#         # ====================================================
+
+#         admin_fee_percentage = (
+#             get_admin_fee_percentage(db)
+#         )
+
+#         # ====================================================
+#         # ADMIN FEE
+#         # ====================================================
+
+#         admin_fee = money(
+#             total_income
+#             * admin_fee_percentage
+#             / Decimal("100")
+#         )
+
+#         # ====================================================
+#         # NET PAYABLE
+#         # ====================================================
+
+#         net_payable = money(
+#             total_income
+#             - admin_fee
+#         )
+
+#         if net_payable <= 0:
+
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=(
+#                     "Net payable amount must be "
+#                     "greater than zero"
+#                 )
+#             )
+
+#         # ====================================================
+#         # PAYMENT TIME
+#         # ====================================================
+
+#         payment_time = datetime.utcnow()
+
+#         # ====================================================
+#         # WALLET BEFORE VALUES
+#         # ====================================================
+
+#         balance_before = money(
+#             wallet.balance
+#         )
+
+#         admin_fee_before = money(
+#             wallet.admin_fee
+#         )
+
+#         pending_before = money(
+#             wallet.pending_balance
+#         )
+
+#         # ====================================================
+#         # UPDATE WALLET
+#         # ====================================================
+
+#         wallet.pending_balance = money(
+#             pending_before
+#             - total_income
+#         )
+
+#         wallet.balance = money(
+#             balance_before
+#             + net_payable
+#         )
+
+#         wallet.admin_fee = money(
+#             admin_fee_before
+#             + admin_fee
+#         )
+
+#         # ====================================================
+#         # REFERRAL → PAID
+#         # ====================================================
+
+#         for record in referral_records:
+
+#             record.status = "PAID"
+
+#             if hasattr(
+#                 record,
+#                 "payment_date"
+#             ):
+#                 record.payment_date = (
+#                     payment_time
+#                 )
+
+#         # ====================================================
+#         # LEVEL → PAID
+#         # ====================================================
+
+#         for record in level_records:
+
+#             record.status = "PAID"
+
+#             if hasattr(
+#                 record,
+#                 "payment_date"
+#             ):
+#                 record.payment_date = (
+#                     payment_time
+#                 )
+
+#         # ====================================================
+#         # RANK → PAID
+#         # ====================================================
+
+#         for record in rank_records:
+
+#             record.reward_paid = True
+
+#             if hasattr(
+#                 record,
+#                 "paid_at"
+#             ):
+#                 record.paid_at = (
+#                     payment_time
+#                 )
+
+#         # ====================================================
+#         # WALLET TRANSACTIONS → PAID
+#         # ====================================================
+
+#         transaction_types = (
+#             "REFERRAL",
+#             "LEVEL_INCOME",
+#             "RANK_REWARD"
+#         )
+
+#         wallet_transactions = (
+#             db.query(WalletTransaction)
+#             .filter(
+#                 WalletTransaction.wallet_id
+#                 == wallet.id,
+
+#                 WalletTransaction.status
+#                 == "PENDING",
+
+#                 WalletTransaction.transaction_type
+#                 .in_(transaction_types)
+#             )
+#             .with_for_update()
+#             .all()
+#         )
+
+#         for transaction in wallet_transactions:
+
+#             transaction.status = "PAID"
+
+#         # ====================================================
+#         # CREATE PAYOUT HISTORY
+#         # ====================================================
+
+#         payout_history = PayoutHistory(
+
+#             user_id=user.id,
+
+#             # ----------------------------------------------
+#             # Income
+#             # ----------------------------------------------
+
+#             referral_income=float(
+#                 referral_amount
+#             ),
+
+#             level_income=float(
+#                 level_amount
+#             ),
+
+#             rank_income=float(
+#                 rank_amount
+#             ),
+
+#             total_income=float(
+#                 total_income
+#             ),
+
+#             # ----------------------------------------------
+#             # Admin Fee
+#             # ----------------------------------------------
+
+#             admin_fee_percentage=float(
+#                 admin_fee_percentage
+#             ),
+
+#             admin_fee=float(
+#                 admin_fee
+#             ),
+
+#             net_payable=float(
+#                 net_payable
+#             ),
+
+#             # ----------------------------------------------
+#             # Payout Details
+#             # ----------------------------------------------
+
+#             payout_method="BANK_TRANSFER",
+
+#             payout_information=None,
+
+#             # ----------------------------------------------
+#             # Status
+#             # ----------------------------------------------
+
+#             status="PAID",
+
+#             paid_at=payment_time,
+
+#             created_at=payment_time
+#         )
+
+#         db.add(
+#             payout_history
+#         )
+
+#         # ====================================================
+#         # COMMIT
+#         # ====================================================
+
+#         db.commit()
+
+#         # ====================================================
+#         # REFRESH
+#         # ====================================================
+
+#         db.refresh(wallet)
+
+#         db.refresh(
+#             payout_history
+#         )
+
+#         # ====================================================
+#         # BANK DETAILS
+#         # ====================================================
+
+#         bank_details = get_bank_details(
+#             user
+#         )
+
+#         # ====================================================
+#         # RESPONSE
+#         # ====================================================
+
+#         return {
+
+#             "message": (
+#                 "Payout completed successfully"
+#             ),
+
+#             "payout_history_id": (
+#                 payout_history.id
+#             ),
+
+#             "user_id": user.id,
+
+#             "user_code": user.user_id,
+
+#             "user_name": get_user_name(
+#                 user
+#             ),
+
+#             # ----------------------------------------------
+#             # Income
+#             # ----------------------------------------------
+
+#             "referral_income": float(
+#                 referral_amount
+#             ),
+
+#             "level_income": float(
+#                 level_amount
+#             ),
+
+#             "rank_income": float(
+#                 rank_amount
+#             ),
+
+#             "total_income": float(
+#                 total_income
+#             ),
+
+#             # ----------------------------------------------
+#             # Investment
+#             # ----------------------------------------------
+
+#             "investment_plan": (
+#                 plan.plan_name
+#             ),
+
+#             "duration_months": (
+#                 plan.duration_months
+#             ),
+
+#             # ----------------------------------------------
+#             # Admin Fee
+#             # ----------------------------------------------
+
+#             "admin_fee_percentage": float(
+#                 admin_fee_percentage
+#             ),
+
+#             "admin_fee": float(
+#                 admin_fee
+#             ),
+
+#             # ----------------------------------------------
+#             # Net Payable
+#             # ----------------------------------------------
+
+#             "net_payable": float(
+#                 net_payable
+#             ),
+
+#             # ----------------------------------------------
+#             # Wallet
+#             # ----------------------------------------------
+
+#             "wallet": {
+
+#                 "balance_before": float(
+#                     balance_before
+#                 ),
+
+#                 "balance_after": float(
+#                     wallet.balance
+#                 ),
+
+#                 "pending_balance_before": float(
+#                     pending_before
+#                 ),
+
+#                 "pending_balance_after": float(
+#                     wallet.pending_balance
+#                 ),
+
+#                 "admin_fee_before": float(
+#                     admin_fee_before
+#                 ),
+
+#                 "admin_fee_after": float(
+#                     wallet.admin_fee
+#                 )
+#             },
+
+#             # ----------------------------------------------
+#             # Bank Details
+#             # ----------------------------------------------
+
+#             "bank_details": bank_details,
+
+#             # ----------------------------------------------
+#             # Payout History
+#             # ----------------------------------------------
+
+#             "payout_history": {
+
+#                 "id": payout_history.id,
+
+#                 "payout_method": (
+#                     payout_history.payout_method
+#                 ),
+
+#                 "payout_information": (
+#                     payout_history.payout_information
+#                 ),
+
+#                 "status": (
+#                     payout_history.status
+#                 ),
+
+#                 "paid_at": (
+#                     payout_history.paid_at
+#                 ),
+
+#                 "created_at": (
+#                     payout_history.created_at
+#                 )
+#             },
+
+#             "status": "PAID",
+
+#             "paid_at": payment_time
+#         }
+
+#     except HTTPException:
+
+#         db.rollback()
+
+#         raise
+
+#     except Exception as e:
+
+#         db.rollback()
+
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Payout failed: {str(e)}"
+#         )
+from datetime import date, datetime, time
+from decimal import Decimal
+from zoneinfo import ZoneInfo
+
+from fastapi import APIRouter, Depends, Form, HTTPException
+from sqlalchemy.orm import Session, joinedload
+
+from app.database import get_db
+from app.models import (
+    User,
+    WalletTransaction,
+    PayoutHistory,
+)
+
+
+# Import your existing helper functions
+# from app.services.payout_service import (
+#     money,
+#     get_admin_fee_percentage,
+#     get_user_wallet,
+#     get_longest_investment,
+#     get_pending_referral,
+#     get_pending_level,
+#     get_pending_rank,
+#     get_bank_details,
+#     get_user_name,
+# )
+
+
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
 @router.post("/{user_id}/pay")
 def pay_user(
     user_id: int,
+    pay_date: date = Form(...),
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """
-    Pay all pending income for a user.
-
-    Flow:
-
-        Referral
-             +
-        Level
-             +
-        Rank
-             =
-        Gross Income
-
-        Gross Income
-             -
-        Admin Fee
-             =
-        Net Payable
-
-    Wallet:
-
-        pending_balance -= gross income
-
-        balance += net payable
-
-        admin_fee += admin fee
-
-    PayoutHistory:
-
-        A history record is created.
-    """
-
     try:
-
-        # ====================================================
-        # GET USER
-        # ====================================================
+        # ==========================================================
+        # 1. USER
+        # ==========================================================
 
         user = (
             db.query(User)
-            .options(
-                joinedload(
-                    User.bank_details
-                )
-            )
-            .filter(
-                User.id == user_id
-            )
+            .options(joinedload(User.bank_details))
+            .filter(User.id == user_id)
             .first()
         )
 
         if not user:
-
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
             )
 
-        # ====================================================
-        # LOCK WALLET
-        # ====================================================
+        # ==========================================================
+        # 2. PAY DATE + CURRENT TIME
+        # ==========================================================
+
+        # Frontend sends only:
+        # 2026-09-09
+        #
+        # Backend adds current IST time.
+        #
+        # Example:
+        # 2026-09-09 + 11:35:42
+        # = 2026-09-09 11:35:42+05:30
+
+        current_ist_time = datetime.now(IST).time()
+
+        payment_time = datetime.combine(
+            pay_date,
+            current_ist_time,
+            tzinfo=IST
+        )
+
+        # ==========================================================
+        # 3. WALLET
+        # ==========================================================
 
         wallet = get_user_wallet(
             db,
@@ -1514,72 +2139,66 @@ def pay_user(
             create=True
         )
 
-        # ====================================================
-        # LOCK PENDING REFERRAL
-        # ====================================================
-
-        referral_records = (
-            get_pending_referral(
-                db,
-                user.id
+        if not wallet:
+            raise HTTPException(
+                status_code=400,
+                detail="User wallet not found"
             )
+
+        # ==========================================================
+        # 4. PENDING REFERRAL INCOME
+        # ==========================================================
+
+        referral_records = get_pending_referral(
+            db,
+            user.id
         )
 
         referral_amount = sum(
             (
-                money(
-                    record.commission_amount
-                )
+                money(record.commission_amount)
                 for record in referral_records
             ),
             Decimal("0.00")
         )
 
-        # ====================================================
-        # LOCK PENDING LEVEL
-        # ====================================================
+        # ==========================================================
+        # 5. PENDING LEVEL INCOME
+        # ==========================================================
 
-        level_records = (
-            get_pending_level(
-                db,
-                user.id
-            )
+        level_records = get_pending_level(
+            db,
+            user.id
         )
 
         level_amount = sum(
             (
-                money(
-                    record.commission_amount
-                )
+                money(record.commission_amount)
                 for record in level_records
             ),
             Decimal("0.00")
         )
 
-        # ====================================================
-        # LOCK PENDING RANK
-        # ====================================================
+        # ==========================================================
+        # 6. PENDING RANK INCOME
+        # ==========================================================
 
-        rank_records = (
-            get_pending_rank(
-                db,
-                user.id
-            )
+        rank_records = get_pending_rank(
+            db,
+            user.id
         )
 
         rank_amount = sum(
             (
-                money(
-                    record.reward_income
-                )
+                money(record.reward_income)
                 for record in rank_records
             ),
             Decimal("0.00")
         )
 
-        # ====================================================
-        # TOTAL GROSS INCOME
-        # ====================================================
+        # ==========================================================
+        # 7. TOTAL INCOME
+        # ==========================================================
 
         total_income = money(
             referral_amount
@@ -1588,38 +2207,33 @@ def pay_user(
         )
 
         if total_income <= 0:
-
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "No pending income available "
-                    "for payout"
-                )
+                detail="No pending income available for payout"
             )
 
-        # ====================================================
-        # CHECK WALLET PENDING BALANCE
-        # ====================================================
+        # ==========================================================
+        # 8. CHECK PENDING WALLET BALANCE
+        # ==========================================================
 
         wallet_pending_before = money(
             wallet.pending_balance
         )
 
         if wallet_pending_before < total_income:
-
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Wallet pending balance "
-                    f"({wallet_pending_before}) is less "
-                    f"than calculated pending income "
+                    f"({wallet_pending_before}) is less than "
+                    f"calculated pending income "
                     f"({total_income})."
                 )
             )
 
-        # ====================================================
-        # GET LONGEST APPROVED INVESTMENT
-        # ====================================================
+        # ==========================================================
+        # 9. GET LONGEST APPROVED INVESTMENT
+        # ==========================================================
 
         investment = get_longest_investment(
             db,
@@ -1627,34 +2241,26 @@ def pay_user(
         )
 
         if not investment:
-
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "User has no approved investment"
-                )
+                detail="User has no approved investment"
             )
 
         plan = investment.investment_plan
 
         if not plan:
-
             raise HTTPException(
                 status_code=400,
                 detail="Investment plan not found"
             )
 
-        # ====================================================
-        # GET ADMIN FEE %
-        # ====================================================
+        # ==========================================================
+        # 10. ADMIN FEE
+        # ==========================================================
 
-        admin_fee_percentage = (
-            get_admin_fee_percentage(db)
+        admin_fee_percentage = get_admin_fee_percentage(
+            db
         )
-
-        # ====================================================
-        # ADMIN FEE
-        # ====================================================
 
         admin_fee = money(
             total_income
@@ -1662,34 +2268,23 @@ def pay_user(
             / Decimal("100")
         )
 
-        # ====================================================
-        # NET PAYABLE
-        # ====================================================
+        # ==========================================================
+        # 11. NET PAYABLE
+        # ==========================================================
 
         net_payable = money(
-            total_income
-            - admin_fee
+            total_income - admin_fee
         )
 
         if net_payable <= 0:
-
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Net payable amount must be "
-                    "greater than zero"
-                )
+                detail="Net payable amount must be greater than zero"
             )
 
-        # ====================================================
-        # PAYMENT TIME
-        # ====================================================
-
-        payment_time = datetime.utcnow()
-
-        # ====================================================
-        # WALLET BEFORE VALUES
-        # ====================================================
+        # ==========================================================
+        # 12. WALLET VALUES BEFORE PAYOUT
+        # ==========================================================
 
         balance_before = money(
             wallet.balance
@@ -1703,94 +2298,82 @@ def pay_user(
             wallet.pending_balance
         )
 
-        # ====================================================
-        # UPDATE WALLET
-        # ====================================================
+        # ==========================================================
+        # 13. UPDATE WALLET
+        # ==========================================================
 
         wallet.pending_balance = money(
-            pending_before
-            - total_income
+            pending_before - total_income
         )
 
         wallet.balance = money(
-            balance_before
-            + net_payable
+            balance_before + net_payable
         )
 
         wallet.admin_fee = money(
-            admin_fee_before
-            + admin_fee
+            admin_fee_before + admin_fee
         )
 
-        # ====================================================
-        # REFERRAL → PAID
-        # ====================================================
+        # ==========================================================
+        # 14. MARK REFERRAL RECORDS AS PAID
+        # ==========================================================
 
         for record in referral_records:
 
             record.status = "PAID"
 
-            if hasattr(
-                record,
-                "payment_date"
-            ):
-                record.payment_date = (
-                    payment_time
-                )
+            if hasattr(record, "payment_date"):
+                record.payment_date = payment_time
 
-        # ====================================================
-        # LEVEL → PAID
-        # ====================================================
+            if hasattr(record, "paid_at"):
+                record.paid_at = payment_time
+
+        # ==========================================================
+        # 15. MARK LEVEL RECORDS AS PAID
+        # ==========================================================
 
         for record in level_records:
 
             record.status = "PAID"
 
-            if hasattr(
-                record,
-                "payment_date"
-            ):
-                record.payment_date = (
-                    payment_time
-                )
+            if hasattr(record, "payment_date"):
+                record.payment_date = payment_time
 
-        # ====================================================
-        # RANK → PAID
-        # ====================================================
+            if hasattr(record, "paid_at"):
+                record.paid_at = payment_time
+
+        # ==========================================================
+        # 16. MARK RANK RECORDS AS PAID
+        # ==========================================================
 
         for record in rank_records:
 
             record.reward_paid = True
 
-            if hasattr(
-                record,
-                "paid_at"
-            ):
-                record.paid_at = (
-                    payment_time
-                )
+            if hasattr(record, "paid_at"):
+                record.paid_at = payment_time
 
-        # ====================================================
-        # WALLET TRANSACTIONS → PAID
-        # ====================================================
+            if hasattr(record, "payment_date"):
+                record.payment_date = payment_time
+
+        # ==========================================================
+        # 17. MARK WALLET TRANSACTIONS AS PAID
+        # ==========================================================
 
         transaction_types = (
             "REFERRAL",
             "LEVEL_INCOME",
-            "RANK_REWARD"
+            "RANK_REWARD",
         )
 
         wallet_transactions = (
             db.query(WalletTransaction)
             .filter(
-                WalletTransaction.wallet_id
-                == wallet.id,
-
-                WalletTransaction.status
-                == "PENDING",
-
-                WalletTransaction.transaction_type
-                .in_(transaction_types)
+                WalletTransaction.wallet_id == wallet.id,
+                WalletTransaction.status == "PENDING",
+                WalletTransaction.transaction_type.in_(
+                    transaction_types
+                )
             )
             .with_for_update()
             .all()
@@ -1800,17 +2383,18 @@ def pay_user(
 
             transaction.status = "PAID"
 
-        # ====================================================
-        # CREATE PAYOUT HISTORY
-        # ====================================================
+            if hasattr(transaction, "payment_date"):
+                transaction.payment_date = payment_time
+
+            if hasattr(transaction, "paid_at"):
+                transaction.paid_at = payment_time
+
+        # ==========================================================
+        # 18. CREATE PAYOUT HISTORY
+        # ==========================================================
 
         payout_history = PayoutHistory(
-
             user_id=user.id,
-
-            # ----------------------------------------------
-            # Income
-            # ----------------------------------------------
 
             referral_income=float(
                 referral_amount
@@ -1828,10 +2412,6 @@ def pay_user(
                 total_income
             ),
 
-            # ----------------------------------------------
-            # Admin Fee
-            # ----------------------------------------------
-
             admin_fee_percentage=float(
                 admin_fee_percentage
             ),
@@ -1844,78 +2424,58 @@ def pay_user(
                 net_payable
             ),
 
-            # ----------------------------------------------
-            # Payout Details
-            # ----------------------------------------------
-
             payout_method="BANK_TRANSFER",
 
             payout_information=None,
-
-            # ----------------------------------------------
-            # Status
-            # ----------------------------------------------
 
             status="PAID",
 
             paid_at=payment_time,
 
-            created_at=payment_time
+            created_at=payment_time,
         )
 
-        db.add(
-            payout_history
-        )
+        db.add(payout_history)
 
-        # ====================================================
-        # COMMIT
-        # ====================================================
+        # ==========================================================
+        # 19. COMMIT
+        # ==========================================================
 
         db.commit()
 
-        # ====================================================
-        # REFRESH
-        # ====================================================
+        # ==========================================================
+        # 20. REFRESH
+        # ==========================================================
 
         db.refresh(wallet)
 
-        db.refresh(
-            payout_history
-        )
+        db.refresh(payout_history)
 
-        # ====================================================
-        # BANK DETAILS
-        # ====================================================
+        # ==========================================================
+        # 21. BANK DETAILS
+        # ==========================================================
 
         bank_details = get_bank_details(
             user
         )
 
-        # ====================================================
-        # RESPONSE
-        # ====================================================
+        # ==========================================================
+        # 22. RESPONSE
+        # ==========================================================
 
         return {
+            "message": "Payout completed successfully",
 
-            "message": (
-                "Payout completed successfully"
-            ),
-
-            "payout_history_id": (
-                payout_history.id
-            ),
+            "payout_history_id": payout_history.id,
 
             "user_id": user.id,
 
             "user_code": user.user_id,
 
-            "user_name": get_user_name(
-                user
-            ),
+            "user_name": get_user_name(user),
 
-            # ----------------------------------------------
-            # Income
-            # ----------------------------------------------
+            # Frontend date + backend current time
+            "pay_date": payment_time,
 
             "referral_income": float(
                 referral_amount
@@ -1933,21 +2493,9 @@ def pay_user(
                 total_income
             ),
 
-            # ----------------------------------------------
-            # Investment
-            # ----------------------------------------------
+            "investment_plan": plan.plan_name,
 
-            "investment_plan": (
-                plan.plan_name
-            ),
-
-            "duration_months": (
-                plan.duration_months
-            ),
-
-            # ----------------------------------------------
-            # Admin Fee
-            # ----------------------------------------------
+            "duration_months": plan.duration_months,
 
             "admin_fee_percentage": float(
                 admin_fee_percentage
@@ -1957,20 +2505,11 @@ def pay_user(
                 admin_fee
             ),
 
-            # ----------------------------------------------
-            # Net Payable
-            # ----------------------------------------------
-
             "net_payable": float(
                 net_payable
             ),
 
-            # ----------------------------------------------
-            # Wallet
-            # ----------------------------------------------
-
             "wallet": {
-
                 "balance_before": float(
                     balance_before
                 ),
@@ -1993,21 +2532,12 @@ def pay_user(
 
                 "admin_fee_after": float(
                     wallet.admin_fee
-                )
+                ),
             },
-
-            # ----------------------------------------------
-            # Bank Details
-            # ----------------------------------------------
 
             "bank_details": bank_details,
 
-            # ----------------------------------------------
-            # Payout History
-            # ----------------------------------------------
-
             "payout_history": {
-
                 "id": payout_history.id,
 
                 "payout_method": (
@@ -2018,43 +2548,570 @@ def pay_user(
                     payout_history.payout_information
                 ),
 
-                "status": (
-                    payout_history.status
-                ),
+                "status": payout_history.status,
 
-                "paid_at": (
-                    payout_history.paid_at
-                ),
+                "paid_at": payout_history.paid_at,
 
-                "created_at": (
-                    payout_history.created_at
-                )
+                "created_at": payout_history.created_at,
             },
 
             "status": "PAID",
 
-            "paid_at": payment_time
+            "paid_at": payment_time,
         }
 
     except HTTPException:
-
         db.rollback()
-
         raise
 
     except Exception as e:
-
         db.rollback()
 
         raise HTTPException(
             status_code=500,
             detail=f"Payout failed: {str(e)}"
         )
-
-
 # ============================================================
 # BULK PAY SELECTED USERS
 # ============================================================
+
+# @router.post("/bulk-pay")
+# def bulk_pay_users(
+#     payload: BulkPayoutRequest,
+#     db: Session = Depends(get_db),
+#     admin: User = Depends(get_current_admin),
+# ):
+#     """
+#     Pay multiple users selected by admin.
+
+#     Example request:
+
+#     {
+#         "user_ids": [12, 15, 18, 25]
+#     }
+
+#     Each user is processed independently.
+
+#     If one user fails, other users can still be paid.
+#     """
+
+#     if not payload.user_ids:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Please select at least one user"
+#         )
+
+#     # Remove duplicate IDs
+#     user_ids = list(set(payload.user_ids))
+
+#     results = []
+
+#     total_paid = Decimal("0.00")
+#     total_admin_fee = Decimal("0.00")
+
+#     success_count = 0
+#     failed_count = 0
+
+#     for user_id in user_ids:
+
+#         try:
+
+#             # ====================================================
+#             # GET USER
+#             # ====================================================
+
+#             user = (
+#                 db.query(User)
+#                 .options(
+#                     joinedload(
+#                         User.bank_details
+#                     )
+#                 )
+#                 .filter(
+#                     User.id == user_id
+#                 )
+#                 .first()
+#             )
+
+#             if not user:
+
+#                 results.append({
+#                     "user_id": user_id,
+#                     "status": "FAILED",
+#                     "message": "User not found"
+#                 })
+
+#                 failed_count += 1
+#                 continue
+
+#             # ====================================================
+#             # LOCK WALLET
+#             # ====================================================
+
+#             wallet = get_user_wallet(
+#                 db,
+#                 user.id,
+#                 create=True
+#             )
+
+#             # ====================================================
+#             # PENDING REFERRAL
+#             # ====================================================
+
+#             referral_records = get_pending_referral(
+#                 db,
+#                 user.id
+#             )
+
+#             referral_amount = sum(
+#                 (
+#                     money(record.commission_amount)
+#                     for record in referral_records
+#                 ),
+#                 Decimal("0.00")
+#             )
+
+#             # ====================================================
+#             # PENDING LEVEL
+#             # ====================================================
+
+#             level_records = get_pending_level(
+#                 db,
+#                 user.id
+#             )
+
+#             level_amount = sum(
+#                 (
+#                     money(record.commission_amount)
+#                     for record in level_records
+#                 ),
+#                 Decimal("0.00")
+#             )
+
+#             # ====================================================
+#             # PENDING RANK
+#             # ====================================================
+
+#             rank_records = get_pending_rank(
+#                 db,
+#                 user.id
+#             )
+
+#             rank_amount = sum(
+#                 (
+#                     money(record.reward_income)
+#                     for record in rank_records
+#                 ),
+#                 Decimal("0.00")
+#             )
+
+#             # ====================================================
+#             # TOTAL GROSS
+#             # ====================================================
+
+#             total_income = money(
+#                 referral_amount
+#                 + level_amount
+#                 + rank_amount
+#             )
+
+#             if total_income <= 0:
+
+#                 results.append({
+#                     "user_id": user.id,
+#                     "user_code": user.user_id,
+#                     "user_name": get_user_name(user),
+#                     "status": "FAILED",
+#                     "message": "No pending income available for payout"
+#                 })
+
+#                 failed_count += 1
+#                 continue
+
+#             # ====================================================
+#             # CHECK PENDING BALANCE
+#             # ====================================================
+
+#             pending_before = money(
+#                 wallet.pending_balance
+#             )
+
+#             if pending_before < total_income:
+
+#                 results.append({
+#                     "user_id": user.id,
+#                     "user_code": user.user_id,
+#                     "user_name": get_user_name(user),
+#                     "status": "FAILED",
+#                     "message": (
+#                         f"Wallet pending balance "
+#                         f"({pending_before}) is less than "
+#                         f"calculated pending income "
+#                         f"({total_income})"
+#                     )
+#                 })
+
+#                 failed_count += 1
+#                 continue
+
+#             # ====================================================
+#             # INVESTMENT
+#             # ====================================================
+
+#             investment = get_longest_investment(
+#                 db,
+#                 user.id
+#             )
+
+#             if not investment:
+
+#                 results.append({
+#                     "user_id": user.id,
+#                     "user_code": user.user_id,
+#                     "user_name": get_user_name(user),
+#                     "status": "FAILED",
+#                     "message": "User has no approved investment"
+#                 })
+
+#                 failed_count += 1
+#                 continue
+
+#             plan = investment.investment_plan
+
+#             if not plan:
+
+#                 results.append({
+#                     "user_id": user.id,
+#                     "user_code": user.user_id,
+#                     "user_name": get_user_name(user),
+#                     "status": "FAILED",
+#                     "message": "Investment plan not found"
+#                 })
+
+#                 failed_count += 1
+#                 continue
+
+#             # ====================================================
+#             # ADMIN FEE
+#             # ====================================================
+
+#             admin_fee_percentage = get_admin_fee_percentage(db)
+
+#             admin_fee = money(
+#                 total_income
+#                 * admin_fee_percentage
+#                 / Decimal("100")
+#             )
+
+#             # ====================================================
+#             # NET PAYABLE
+#             # ====================================================
+
+#             net_payable = money(
+#                 total_income
+#                 - admin_fee
+#             )
+
+#             if net_payable <= 0:
+
+#                 results.append({
+#                     "user_id": user.id,
+#                     "user_code": user.user_id,
+#                     "user_name": get_user_name(user),
+#                     "status": "FAILED",
+#                     "message": "Net payable amount must be greater than zero"
+#                 })
+
+#                 failed_count += 1
+#                 continue
+
+#             # ====================================================
+#             # PAYMENT TIME
+#             # ====================================================
+
+#             payment_time = datetime.utcnow()
+
+#             # ====================================================
+#             # WALLET BEFORE
+#             # ====================================================
+
+#             balance_before = money(
+#                 wallet.balance
+#             )
+
+#             admin_fee_before = money(
+#                 wallet.admin_fee
+#             )
+
+#             # ====================================================
+#             # UPDATE WALLET
+#             # ====================================================
+
+#             wallet.pending_balance = money(
+#                 pending_before
+#                 - total_income
+#             )
+
+#             wallet.balance = money(
+#                 balance_before
+#                 + net_payable
+#             )
+
+#             wallet.admin_fee = money(
+#                 admin_fee_before
+#                 + admin_fee
+#             )
+
+#             # ====================================================
+#             # REFERRAL -> PAID
+#             # ====================================================
+
+#             for record in referral_records:
+
+#                 record.status = "PAID"
+
+#                 if hasattr(
+#                     record,
+#                     "payment_date"
+#                 ):
+#                     record.payment_date = payment_time
+
+#             # ====================================================
+#             # LEVEL -> PAID
+#             # ====================================================
+
+#             for record in level_records:
+
+#                 record.status = "PAID"
+
+#                 if hasattr(
+#                     record,
+#                     "payment_date"
+#                 ):
+#                     record.payment_date = payment_time
+
+#             # ====================================================
+#             # RANK -> PAID
+#             # ====================================================
+
+#             for record in rank_records:
+
+#                 record.reward_paid = True
+
+#                 if hasattr(
+#                     record,
+#                     "paid_at"
+#                 ):
+#                     record.paid_at = payment_time
+
+#             # ====================================================
+#             # WALLET TRANSACTIONS -> PAID
+#             # ====================================================
+
+#             transaction_types = (
+#                 "REFERRAL",
+#                 "LEVEL_INCOME",
+#                 "RANK_REWARD"
+#             )
+
+#             wallet_transactions = (
+#                 db.query(WalletTransaction)
+#                 .filter(
+#                     WalletTransaction.wallet_id == wallet.id,
+
+#                     WalletTransaction.status == "PENDING",
+
+#                     WalletTransaction.transaction_type.in_(
+#                         transaction_types
+#                     )
+#                 )
+#                 .with_for_update()
+#                 .all()
+#             )
+
+#             for transaction in wallet_transactions:
+
+#                 transaction.status = "PAID"
+
+#             # ====================================================
+#             # PAYOUT HISTORY
+#             # ====================================================
+
+#             payout_history = PayoutHistory(
+
+#                 user_id=user.id,
+
+#                 referral_income=float(
+#                     referral_amount
+#                 ),
+
+#                 level_income=float(
+#                     level_amount
+#                 ),
+
+#                 rank_income=float(
+#                     rank_amount
+#                 ),
+
+#                 total_income=float(
+#                     total_income
+#                 ),
+
+#                 admin_fee_percentage=float(
+#                     admin_fee_percentage
+#                 ),
+
+#                 admin_fee=float(
+#                     admin_fee
+#                 ),
+
+#                 net_payable=float(
+#                     net_payable
+#                 ),
+
+#                 payout_method="BANK_TRANSFER",
+
+#                 payout_information=None,
+
+#                 status="PAID",
+
+#                 paid_at=payment_time,
+
+#                 created_at=payment_time
+#             )
+
+#             db.add(
+#                 payout_history
+#             )
+
+#             # ====================================================
+#             # FLUSH
+#             # ====================================================
+
+#             db.flush()
+
+#             # ====================================================
+#             # SUCCESS
+#             # ====================================================
+
+#             results.append({
+
+#                 "user_id": user.id,
+
+#                 "user_code": user.user_id,
+
+#                 "user_name": get_user_name(user),
+
+#                 "status": "PAID",
+
+#                 "payout_history_id": (
+#                     payout_history.id
+#                 ),
+
+#                 "referral_income": float(
+#                     referral_amount
+#                 ),
+
+#                 "level_income": float(
+#                     level_amount
+#                 ),
+
+#                 "rank_income": float(
+#                     rank_amount
+#                 ),
+
+#                 "total_income": float(
+#                     total_income
+#                 ),
+
+#                 "admin_fee": float(
+#                     admin_fee
+#                 ),
+
+#                 "net_payable": float(
+#                     net_payable
+#                 ),
+
+#                 "investment_plan": (
+#                     plan.plan_name
+#                 )
+#             })
+
+#             success_count += 1
+
+#             total_paid += net_payable
+
+#             total_admin_fee += admin_fee
+
+#         except Exception as e:
+
+#             results.append({
+
+#                 "user_id": user_id,
+
+#                 "status": "FAILED",
+
+#                 "message": str(e)
+#             })
+
+#             failed_count += 1
+
+#             # Continue with next user
+#             continue
+
+#     # ========================================================
+#     # COMMIT ALL SUCCESSFUL PAYMENTS
+#     # ========================================================
+
+#     try:
+
+#         db.commit()
+
+#     except Exception as e:
+
+#         db.rollback()
+
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Bulk payout failed: {str(e)}"
+#         )
+
+#     # ========================================================
+#     # RESPONSE
+#     # ========================================================
+
+#     return {
+
+#         "message": "Bulk payout processing completed",
+
+#         "total_selected": len(user_ids),
+
+#         "success_count": success_count,
+
+#         "failed_count": failed_count,
+
+#         "total_paid": float(
+#             total_paid
+#         ),
+
+#         "total_admin_fee": float(
+#             total_admin_fee
+#         ),
+
+#         "results": results
+#     }
+
+
+from datetime import date, datetime
+from decimal import Decimal
+from zoneinfo import ZoneInfo
+
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session, joinedload
+
+
+IST = ZoneInfo("Asia/Kolkata")
+
 
 @router.post("/bulk-pay")
 def bulk_pay_users(
@@ -2068,13 +3125,28 @@ def bulk_pay_users(
     Example request:
 
     {
-        "user_ids": [12, 15, 18, 25]
+        "user_ids": [12, 15, 18, 25],
+        "pay_date": "2026-09-09"
     }
 
-    Each user is processed independently.
+    Frontend provides only the date.
 
+    Backend automatically uses the current IST time.
+
+    Example:
+        pay_date = 2026-09-09
+        current time = 11:35:42
+
+    Saved:
+        2026-09-09 11:35:42+05:30
+
+    Each user is processed independently.
     If one user fails, other users can still be paid.
     """
+
+    # ==========================================================
+    # 1. VALIDATE USER IDS
+    # ==========================================================
 
     if not payload.user_ids:
         raise HTTPException(
@@ -2085,6 +3157,30 @@ def bulk_pay_users(
     # Remove duplicate IDs
     user_ids = list(set(payload.user_ids))
 
+    # ==========================================================
+    # 2. PAYMENT DATE + CURRENT IST TIME
+    # ==========================================================
+
+    # Frontend sends only:
+    #
+    # 2026-09-09
+    #
+    # Current time is taken from backend.
+    #
+    # Example:
+    # 2026-09-09 + 11:35:42
+    #
+    # Result:
+    # 2026-09-09 11:35:42+05:30
+
+    current_ist = datetime.now(IST)
+
+    payment_time = datetime.combine(
+        payload.pay_date,
+        current_ist.time(),
+        tzinfo=IST
+    )
+
     results = []
 
     total_paid = Decimal("0.00")
@@ -2093,20 +3189,22 @@ def bulk_pay_users(
     success_count = 0
     failed_count = 0
 
+    # ==========================================================
+    # 3. PROCESS EACH USER
+    # ==========================================================
+
     for user_id in user_ids:
 
         try:
 
-            # ====================================================
+            # ==================================================
             # GET USER
-            # ====================================================
+            # ==================================================
 
             user = (
                 db.query(User)
                 .options(
-                    joinedload(
-                        User.bank_details
-                    )
+                    joinedload(User.bank_details)
                 )
                 .filter(
                     User.id == user_id
@@ -2125,9 +3223,9 @@ def bulk_pay_users(
                 failed_count += 1
                 continue
 
-            # ====================================================
-            # LOCK WALLET
-            # ====================================================
+            # ==================================================
+            # GET WALLET
+            # ==================================================
 
             wallet = get_user_wallet(
                 db,
@@ -2135,9 +3233,22 @@ def bulk_pay_users(
                 create=True
             )
 
-            # ====================================================
+            if not wallet:
+
+                results.append({
+                    "user_id": user.id,
+                    "user_code": user.user_id,
+                    "user_name": get_user_name(user),
+                    "status": "FAILED",
+                    "message": "Wallet not found"
+                })
+
+                failed_count += 1
+                continue
+
+            # ==================================================
             # PENDING REFERRAL
-            # ====================================================
+            # ==================================================
 
             referral_records = get_pending_referral(
                 db,
@@ -2152,9 +3263,9 @@ def bulk_pay_users(
                 Decimal("0.00")
             )
 
-            # ====================================================
+            # ==================================================
             # PENDING LEVEL
-            # ====================================================
+            # ==================================================
 
             level_records = get_pending_level(
                 db,
@@ -2169,9 +3280,9 @@ def bulk_pay_users(
                 Decimal("0.00")
             )
 
-            # ====================================================
+            # ==================================================
             # PENDING RANK
-            # ====================================================
+            # ==================================================
 
             rank_records = get_pending_rank(
                 db,
@@ -2186,9 +3297,9 @@ def bulk_pay_users(
                 Decimal("0.00")
             )
 
-            # ====================================================
-            # TOTAL GROSS
-            # ====================================================
+            # ==================================================
+            # TOTAL GROSS INCOME
+            # ==================================================
 
             total_income = money(
                 referral_amount
@@ -2203,15 +3314,17 @@ def bulk_pay_users(
                     "user_code": user.user_id,
                     "user_name": get_user_name(user),
                     "status": "FAILED",
-                    "message": "No pending income available for payout"
+                    "message": (
+                        "No pending income available for payout"
+                    )
                 })
 
                 failed_count += 1
                 continue
 
-            # ====================================================
+            # ==================================================
             # CHECK PENDING BALANCE
-            # ====================================================
+            # ==================================================
 
             pending_before = money(
                 wallet.pending_balance
@@ -2235,9 +3348,9 @@ def bulk_pay_users(
                 failed_count += 1
                 continue
 
-            # ====================================================
-            # INVESTMENT
-            # ====================================================
+            # ==================================================
+            # GET INVESTMENT
+            # ==================================================
 
             investment = get_longest_investment(
                 db,
@@ -2251,11 +3364,17 @@ def bulk_pay_users(
                     "user_code": user.user_id,
                     "user_name": get_user_name(user),
                     "status": "FAILED",
-                    "message": "User has no approved investment"
+                    "message": (
+                        "User has no approved investment"
+                    )
                 })
 
                 failed_count += 1
                 continue
+
+            # ==================================================
+            # INVESTMENT PLAN
+            # ==================================================
 
             plan = investment.investment_plan
 
@@ -2272,11 +3391,13 @@ def bulk_pay_users(
                 failed_count += 1
                 continue
 
-            # ====================================================
+            # ==================================================
             # ADMIN FEE
-            # ====================================================
+            # ==================================================
 
-            admin_fee_percentage = get_admin_fee_percentage(db)
+            admin_fee_percentage = (
+                get_admin_fee_percentage(db)
+            )
 
             admin_fee = money(
                 total_income
@@ -2284,9 +3405,9 @@ def bulk_pay_users(
                 / Decimal("100")
             )
 
-            # ====================================================
+            # ==================================================
             # NET PAYABLE
-            # ====================================================
+            # ==================================================
 
             net_payable = money(
                 total_income
@@ -2300,21 +3421,38 @@ def bulk_pay_users(
                     "user_code": user.user_id,
                     "user_name": get_user_name(user),
                     "status": "FAILED",
-                    "message": "Net payable amount must be greater than zero"
+                    "message": (
+                        "Net payable amount must be greater "
+                        "than zero"
+                    )
                 })
 
                 failed_count += 1
                 continue
 
-            # ====================================================
+            # ==================================================
             # PAYMENT TIME
-            # ====================================================
+            # ==================================================
 
-            payment_time = datetime.utcnow()
+            # IMPORTANT:
+            # Same selected pay_date for all users,
+            # with current IST time.
 
-            # ====================================================
+            # Example:
+            # Frontend:
+            # 2026-09-09
+            #
+            # Current time:
+            # 11:35:42
+            #
+            # Saved:
+            # 2026-09-09 11:35:42+05:30
+
+            # payment_time is already calculated above.
+
+            # ==================================================
             # WALLET BEFORE
-            # ====================================================
+            # ==================================================
 
             balance_before = money(
                 wallet.balance
@@ -2324,9 +3462,9 @@ def bulk_pay_users(
                 wallet.admin_fee
             )
 
-            # ====================================================
+            # ==================================================
             # UPDATE WALLET
-            # ====================================================
+            # ==================================================
 
             wallet.pending_balance = money(
                 pending_before
@@ -2343,9 +3481,9 @@ def bulk_pay_users(
                 + admin_fee
             )
 
-            # ====================================================
+            # ==================================================
             # REFERRAL -> PAID
-            # ====================================================
+            # ==================================================
 
             for record in referral_records:
 
@@ -2357,9 +3495,15 @@ def bulk_pay_users(
                 ):
                     record.payment_date = payment_time
 
-            # ====================================================
+                if hasattr(
+                    record,
+                    "paid_at"
+                ):
+                    record.paid_at = payment_time
+
+            # ==================================================
             # LEVEL -> PAID
-            # ====================================================
+            # ==================================================
 
             for record in level_records:
 
@@ -2371,9 +3515,15 @@ def bulk_pay_users(
                 ):
                     record.payment_date = payment_time
 
-            # ====================================================
+                if hasattr(
+                    record,
+                    "paid_at"
+                ):
+                    record.paid_at = payment_time
+
+            # ==================================================
             # RANK -> PAID
-            # ====================================================
+            # ==================================================
 
             for record in rank_records:
 
@@ -2385,9 +3535,15 @@ def bulk_pay_users(
                 ):
                     record.paid_at = payment_time
 
-            # ====================================================
+                if hasattr(
+                    record,
+                    "payment_date"
+                ):
+                    record.payment_date = payment_time
+
+            # ==================================================
             # WALLET TRANSACTIONS -> PAID
-            # ====================================================
+            # ==================================================
 
             transaction_types = (
                 "REFERRAL",
@@ -2414,9 +3570,21 @@ def bulk_pay_users(
 
                 transaction.status = "PAID"
 
-            # ====================================================
-            # PAYOUT HISTORY
-            # ====================================================
+                if hasattr(
+                    transaction,
+                    "payment_date"
+                ):
+                    transaction.payment_date = payment_time
+
+                if hasattr(
+                    transaction,
+                    "paid_at"
+                ):
+                    transaction.paid_at = payment_time
+
+            # ==================================================
+            # CREATE PAYOUT HISTORY
+            # ==================================================
 
             payout_history = PayoutHistory(
 
@@ -2456,6 +3624,7 @@ def bulk_pay_users(
 
                 status="PAID",
 
+                # Frontend date + current IST time
                 paid_at=payment_time,
 
                 created_at=payment_time
@@ -2465,15 +3634,15 @@ def bulk_pay_users(
                 payout_history
             )
 
-            # ====================================================
+            # ==================================================
             # FLUSH
-            # ====================================================
+            # ==================================================
 
             db.flush()
 
-            # ====================================================
-            # SUCCESS
-            # ====================================================
+            # ==================================================
+            # SUCCESS RESULT
+            # ==================================================
 
             results.append({
 
@@ -2488,6 +3657,8 @@ def bulk_pay_users(
                 "payout_history_id": (
                     payout_history.id
                 ),
+
+                "pay_date": payment_time,
 
                 "referral_income": float(
                     referral_amount
@@ -2526,6 +3697,10 @@ def bulk_pay_users(
 
         except Exception as e:
 
+            # Rollback only the current transaction
+            # before continuing to the next user.
+            db.rollback()
+
             results.append({
 
                 "user_id": user_id,
@@ -2540,9 +3715,9 @@ def bulk_pay_users(
             # Continue with next user
             continue
 
-    # ========================================================
-    # COMMIT ALL SUCCESSFUL PAYMENTS
-    # ========================================================
+    # ==========================================================
+    # COMMIT SUCCESSFUL PAYMENTS
+    # ==========================================================
 
     try:
 
@@ -2557,9 +3732,9 @@ def bulk_pay_users(
             detail=f"Bulk payout failed: {str(e)}"
         )
 
-    # ========================================================
+    # ==========================================================
     # RESPONSE
-    # ========================================================
+    # ==========================================================
 
     return {
 
@@ -2571,6 +3746,8 @@ def bulk_pay_users(
 
         "failed_count": failed_count,
 
+        "pay_date": payment_time,
+
         "total_paid": float(
             total_paid
         ),
@@ -2581,9 +3758,6 @@ def bulk_pay_users(
 
         "results": results
     }
-
-
-
 # ============================================================
 # GET PAID PAYOUTS
 # ============================================================

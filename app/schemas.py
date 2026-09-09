@@ -723,3 +723,4 @@ class ReturnDateSettingResponse(BaseModel):
 
 class BulkPayoutRequest(BaseModel):
     user_ids: List[int]
+    pay_date: date
