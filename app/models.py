@@ -712,6 +712,11 @@ class LevelCommissionHistory(Base):
         default=datetime.utcnow
     )
 
+    paid_at = Column(
+            DateTime(timezone=True),
+            nullable=True
+        )
+
     investment = relationship(
         "Investment",
         foreign_keys=[investment_id]
